@@ -92,27 +92,12 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         lines.push(headerLine);
         lines.push(headerSeparator);
 
-        // Create thin separator line (inside cells, keeps vertical lines solid)
-        const thinSeparatorCells = colWidths.map(w => ' ' + '─'.repeat(w) + ' ');
-        const thinRowSeparator = '│' + thinSeparatorCells.join('│') + '│';
-
-        // Data rows with zebra striping and thin row separators
-        for (let rowIndex = 0; rowIndex < table.rows.length; rowIndex++) {
-            const row = table.rows[rowIndex];
-            const isShaded = rowIndex % 2 === 1; // Shade odd rows (0-indexed, so 2nd, 4th, etc.)
-            const fillChar = isShaded ? '░' : ' ';
-
-            // Keep space at borders for clean vertical lines, shade only inner content
+        // Data rows - clean and simple with solid vertical lines
+        for (const row of table.rows) {
             const cells = row.map((cell, i) => {
-                const paddedContent = this.padCellWithChar(cell || '', colWidths[i], table.alignments[i], fillChar);
-                return ' ' + paddedContent + ' ';
+                return ' ' + this.padCell(cell || '', colWidths[i], table.alignments[i]) + ' ';
             });
             lines.push('│' + cells.join('│') + '│');
-
-            // Add thin separator after each row except the last
-            if (rowIndex < table.rows.length - 1) {
-                lines.push(thinRowSeparator);
-            }
         }
 
         lines.push(bottomBorder);
