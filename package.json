@@ -17,8 +17,11 @@
     "author": "bamsejon",
     "license": "MIT",
     "devDependencies": {
-        "@rocket.chat/apps-cli": "^1.11.0",
-        "@rocket.chat/apps-engine": "^1.45.0",
-        "typescript": "^5.0.0"
+        "@rocket.chat/apps-cli": "^1.8.0",
+        "@rocket.chat/apps-engine": "^1.41.0",
+        "@rocket.chat/ui-kit": "^0.33.0",
+        "@rocket.chat/icons": "^0.33.0",
+        "@types/node": "^16.0.0",
+        "typescript": "~4.9.0"
     }
 }
