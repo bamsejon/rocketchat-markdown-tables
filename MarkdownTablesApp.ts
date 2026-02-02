@@ -92,10 +92,14 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         lines.push(headerLine);
         lines.push(headerSeparator);
 
-        // Data rows
-        for (const row of table.rows) {
+        // Data rows with zebra striping (every other row has shaded background)
+        for (let rowIndex = 0; rowIndex < table.rows.length; rowIndex++) {
+            const row = table.rows[rowIndex];
+            const isShaded = rowIndex % 2 === 1; // Shade odd rows (0-indexed, so 2nd, 4th, etc.)
+            const padChar = isShaded ? '░' : ' ';
+
             const cells = row.map((cell, i) => {
-                return ' ' + this.padCell(cell || '', colWidths[i], table.alignments[i]) + ' ';
+                return padChar + this.padCellWithChar(cell || '', colWidths[i], table.alignments[i], padChar) + padChar;
             });
             lines.push('│' + cells.join('│') + '│');
         }
@@ -130,6 +134,10 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
     }
 
     private padCell(text: string, targetWidth: number, align: string): string {
+        return this.padCellWithChar(text, targetWidth, align, ' ');
+    }
+
+    private padCellWithChar(text: string, targetWidth: number, align: string, padChar: string): string {
         const currentWidth = this.getDisplayWidth(text);
         const padding = targetWidth - currentWidth;
         if (padding <= 0) return text;
@@ -137,11 +145,11 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         if (align === 'center') {
             const left = Math.floor(padding / 2);
             const right = padding - left;
-            return ' '.repeat(left) + text + ' '.repeat(right);
+            return padChar.repeat(left) + text + padChar.repeat(right);
         } else if (align === 'right') {
-            return ' '.repeat(padding) + text;
+            return padChar.repeat(padding) + text;
         } else {
-            return text + ' '.repeat(padding);
+            return text + padChar.repeat(padding);
         }
     }
 }
