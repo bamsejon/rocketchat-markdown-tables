@@ -1,0 +1,6 @@
+{
+    "Table_Style": "Tabellenstil",
+    "Table_Style_Description": "Wählen Sie den Rahmenstil für Tabellen. Unicode sieht schöner aus, kann aber in Safari Ausrichtungsprobleme haben. ASCII funktioniert in allen Browsern korrekt.",
+    "Table_Style_Unicode": "Unicode (Chrome, Firefox, Edge)",
+    "Table_Style_ASCII": "ASCII (Alle Browser inkl. Safari)"
+}

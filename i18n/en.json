@@ -1,0 +1,6 @@
+{
+    "Table_Style": "Table Style",
+    "Table_Style_Description": "Choose the border style for tables. Unicode looks nicer but may have alignment issues in Safari. ASCII works correctly in all browsers.",
+    "Table_Style_Unicode": "Unicode (Chrome, Firefox, Edge)",
+    "Table_Style_ASCII": "ASCII (All browsers incl. Safari)"
+}

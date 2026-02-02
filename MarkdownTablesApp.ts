@@ -5,16 +5,47 @@ import {
     IMessageBuilder,
     IPersistence,
     IRead,
+    IConfigurationExtend,
 } from '@rocket.chat/apps-engine/definition/accessors';
 import { App } from '@rocket.chat/apps-engine/definition/App';
 import { IAppInfo } from '@rocket.chat/apps-engine/definition/metadata';
 import { IMessage, IPreMessageSentModify } from '@rocket.chat/apps-engine/definition/messages';
+import { ISetting, SettingType } from '@rocket.chat/apps-engine/definition/settings';
 
 import { parseMarkdownTable, TableData, convertTsvToMarkdown } from './lib/tableParser';
+
+// Box-drawing character sets
+const UNICODE_CHARS = {
+    topLeft: '┌', topRight: '┐', bottomLeft: '└', bottomRight: '┘',
+    horizontal: '─', vertical: '│',
+    teeDown: '┬', teeUp: '┴', teeRight: '├', teeLeft: '┤', cross: '┼',
+};
+
+const ASCII_CHARS = {
+    topLeft: '+', topRight: '+', bottomLeft: '+', bottomRight: '+',
+    horizontal: '-', vertical: '|',
+    teeDown: '+', teeUp: '+', teeRight: '+', teeLeft: '+', cross: '+',
+};
 
 export class MarkdownTablesApp extends App implements IPreMessageSentModify {
     constructor(info: IAppInfo, logger: ILogger, accessors: IAppAccessors) {
         super(info, logger, accessors);
+    }
+
+    public async extendConfiguration(configuration: IConfigurationExtend): Promise<void> {
+        await configuration.settings.provideSetting({
+            id: 'table_style',
+            type: SettingType.SELECT,
+            packageValue: 'unicode',
+            required: false,
+            public: false,
+            i18nLabel: 'Table_Style',
+            i18nDescription: 'Table_Style_Description',
+            values: [
+                { key: 'unicode', i18nLabel: 'Table_Style_Unicode' },
+                { key: 'ascii', i18nLabel: 'Table_Style_ASCII' },
+            ],
+        });
     }
 
     public async checkPreMessageSentModify(
@@ -54,10 +85,14 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             return message;
         }
 
+        // Get table style setting
+        const tableStyle = await read.getEnvironmentReader().getSettings().getValueById('table_style');
+        const chars = tableStyle === 'ascii' ? ASCII_CHARS : UNICODE_CHARS;
+
         let modifiedText = processedText;
 
         for (const table of tables) {
-            const formattedTable = this.createFormattedTable(table);
+            const formattedTable = this.createFormattedTable(table, chars);
             modifiedText = modifiedText.replace(table.rawText, formattedTable);
         }
 
@@ -68,7 +103,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         return builder.getMessage();
     }
 
-    private createFormattedTable(table: TableData): string {
+    private createFormattedTable(table: TableData, chars: typeof UNICODE_CHARS): string {
         // Calculate column widths using display width (accounting for emojis)
         const colWidths: number[] = [];
         for (let i = 0; i < table.headers.length; i++) {
@@ -85,16 +120,16 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const lines: string[] = [];
 
         // Build separator line
-        const separatorParts = colWidths.map(w => '─'.repeat(w + 2));
-        const topBorder = '┌' + separatorParts.join('┬') + '┐';
-        const headerSeparator = '├' + separatorParts.join('┼') + '┤';
-        const bottomBorder = '└' + separatorParts.join('┴') + '┘';
+        const separatorParts = colWidths.map(w => chars.horizontal.repeat(w + 2));
+        const topBorder = chars.topLeft + separatorParts.join(chars.teeDown) + chars.topRight;
+        const headerSeparator = chars.teeRight + separatorParts.join(chars.cross) + chars.teeLeft;
+        const bottomBorder = chars.bottomLeft + separatorParts.join(chars.teeUp) + chars.bottomRight;
 
         // Header row
         const headerCells = table.headers.map((h, i) => {
             return ' ' + this.padCell(h, colWidths[i], table.alignments[i]) + ' ';
         });
-        const headerLine = '│' + headerCells.join('│') + '│';
+        const headerLine = chars.vertical + headerCells.join(chars.vertical) + chars.vertical;
 
         lines.push('```');
         lines.push(topBorder);
@@ -106,7 +141,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             const cells = row.map((cell, i) => {
                 return ' ' + this.padCell(cell || '', colWidths[i], table.alignments[i]) + ' ';
             });
-            lines.push('│' + cells.join('│') + '│');
+            lines.push(chars.vertical + cells.join(chars.vertical) + chars.vertical);
         }
 
         lines.push(bottomBorder);

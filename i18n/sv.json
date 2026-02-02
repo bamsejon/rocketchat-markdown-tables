@@ -1,0 +1,6 @@
+{
+    "Table_Style": "Tabellstil",
+    "Table_Style_Description": "Välj kantstil för tabeller. Unicode ser snyggare ut men kan ha justeringsproblem i Safari. ASCII fungerar korrekt i alla webbläsare.",
+    "Table_Style_Unicode": "Unicode (Chrome, Firefox, Edge)",
+    "Table_Style_ASCII": "ASCII (Alla webbläsare inkl. Safari)"
+}

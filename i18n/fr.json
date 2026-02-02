@@ -1,0 +1,6 @@
+{
+    "Table_Style": "Style de tableau",
+    "Table_Style_Description": "Choisissez le style de bordure pour les tableaux. Unicode est plus joli mais peut avoir des problèmes d'alignement dans Safari. ASCII fonctionne correctement dans tous les navigateurs.",
+    "Table_Style_Unicode": "Unicode (Chrome, Firefox, Edge)",
+    "Table_Style_ASCII": "ASCII (Tous les navigateurs incl. Safari)"
+}
