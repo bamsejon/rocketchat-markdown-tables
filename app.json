@@ -1,0 +1,24 @@
+{
+    "id": "se.pelleops.markdown-tables",
+    "version": "1.0.0",
+    "requiredApiVersion": "^1.4.0",
+    "iconFile": "icon.png",
+    "author": {
+        "name": "bamsejon",
+        "homepage": "https://github.com/bamsejon/rocketchat-markdown-tables",
+        "support": "https://github.com/bamsejon/rocketchat-markdown-tables/issues"
+    },
+    "name": "Markdown Tables",
+    "nameSlug": "markdown-tables",
+    "classFile": "MarkdownTablesApp.ts",
+    "description": "Adds markdown table support to Rocket.Chat by converting tables to formatted attachments",
+    "implements": [],
+    "permissions": [
+        {
+            "name": "message.write"
+        },
+        {
+            "name": "message.read"
+        }
+    ]
+}

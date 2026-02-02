@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#4A90A4" rx="64"/>
+  <g fill="white">
+    <!-- Table icon -->
+    <rect x="96" y="128" width="320" height="256" fill="none" stroke="white" stroke-width="24" rx="16"/>
+    <!-- Header row -->
+    <rect x="96" y="128" width="320" height="64" fill="white" opacity="0.3"/>
+    <!-- Vertical lines -->
+    <line x1="203" y1="128" x2="203" y2="384" stroke="white" stroke-width="12"/>
+    <line x1="309" y1="128" x2="309" y2="384" stroke="white" stroke-width="12"/>
+    <!-- Horizontal lines -->
+    <line x1="96" y1="192" x2="416" y2="192" stroke="white" stroke-width="12"/>
+    <line x1="96" y1="256" x2="416" y2="256" stroke="white" stroke-width="12"/>
+    <line x1="96" y1="320" x2="416" y2="320" stroke="white" stroke-width="12"/>
+  </g>
+</svg>

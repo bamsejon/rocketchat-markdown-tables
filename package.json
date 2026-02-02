@@ -1,0 +1,24 @@
+{
+    "name": "rocketchat-markdown-tables",
+    "version": "1.0.0",
+    "description": "Rocket.Chat App for markdown table support",
+    "main": "MarkdownTablesApp.ts",
+    "scripts": {
+        "build": "rc-apps package",
+        "deploy": "rc-apps deploy --url $RC_URL --username $RC_USER --password $RC_PASS",
+        "deploy:update": "rc-apps deploy --url $RC_URL --username $RC_USER --password $RC_PASS --update"
+    },
+    "keywords": [
+        "rocket.chat",
+        "app",
+        "markdown",
+        "tables"
+    ],
+    "author": "bamsejon",
+    "license": "MIT",
+    "devDependencies": {
+        "@rocket.chat/apps-cli": "^1.11.0",
+        "@rocket.chat/apps-engine": "^1.45.0",
+        "typescript": "^5.0.0"
+    }
+}
