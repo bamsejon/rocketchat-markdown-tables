@@ -1,23 +1,41 @@
 # Rocket.Chat Markdown Tables
 
-A Rocket.Chat App that adds markdown table support by converting GFM-style tables to formatted message attachments.
+A Rocket.Chat App that adds markdown table support by rendering tables as formatted ASCII tables in code blocks.
 
 ## Features
 
 - Parses GitHub Flavored Markdown (GFM) tables
-- Converts tables to Rocket.Chat message attachments with fields
+- **Paste from Excel/Sheets** - Tab-separated data is automatically converted to tables
+- Renders beautiful ASCII box-drawing tables
 - Supports column alignment (left, center, right)
+- Handles emojis correctly (proper column width calculation)
 - Works with any number of columns and rows
-- Preserves other message content
 
 ## Installation
 
-### From Marketplace (Recommended)
+### Quick Install (Recommended)
 
-1. Go to **Administration** → **Marketplace** → **Private Apps**
-2. Upload the `.zip` file
+1. **Download** the latest release: [`markdown-tables_1.6.0.zip`](https://github.com/bamsejon/rocketchat-markdown-tables/releases/latest)
 
-### Manual Installation
+2. **Enable Apps in Rocket.Chat:**
+   - Log in as administrator
+   - Go to **Administration** (gear icon) → **Settings** → **General** → **Apps**
+   - Set **Enable the App Framework** to `True`
+   - Set **Enable development mode** to `True` (required for private apps)
+   - Click **Save changes**
+
+3. **Install the App:**
+   - Go to **Administration** → **Apps** → **Private Apps**
+   - Click **Upload App**
+   - Select the downloaded `markdown-tables_1.6.0.zip` file
+   - Click **Install**
+   - When prompted, click **Agree** to accept permissions
+
+4. **Verify Installation:**
+   - The app should now show as "Enabled" in Private Apps
+   - Try sending a message with a markdown table to test!
+
+### Build from Source
 
 ```bash
 # Clone the repository
@@ -30,127 +48,73 @@ npm install
 # Build the app
 npm run build
 
-# Deploy to your Rocket.Chat instance
-export RC_URL="https://your-rocketchat.example.com"
-export RC_USER="admin-username"
-export RC_PASS="admin-password"
-npm run deploy
+# The zip file will be in dist/markdown-tables_1.6.0.zip
 ```
 
 ## Usage
 
-Simply write markdown tables in your messages:
+### Markdown Tables
+
+Write standard markdown tables in your messages:
 
 ```markdown
 | Name    | Age | City      |
 |---------|-----|-----------|
 | Alice   | 30  | Stockholm |
 | Bob     | 25  | Göteborg  |
-| Charlie | 35  | Malmö     |
 ```
 
-The app will automatically convert this to a formatted attachment with fields.
+The app converts this to a formatted ASCII table:
 
-## Table Syntax
+```
+┌─────────┬───────┬───────────┐
+│ Name    │ Age   │ City      │
+├─────────┼───────┼───────────┤
+│ Alice   │ 30    │ Stockholm │
+│ Bob     │ 25    │ Göteborg  │
+└─────────┴───────┴───────────┘
+```
 
-The app supports standard GFM table syntax:
+### Paste from Excel/Spreadsheets
+
+Copy cells from Excel, Google Sheets, or any spreadsheet and paste directly into Rocket.Chat. The tab-separated data is automatically converted to a table!
+
+```
+Name    Age    City           →    Becomes a formatted table!
+Alice   30     Stockholm
+Bob     25     Göteborg
+```
+
+### Column Alignment
+
+The app supports standard GFM alignment syntax:
 
 ```markdown
 | Left-aligned | Center-aligned | Right-aligned |
 |:-------------|:--------------:|--------------:|
-| Left         | Center         | Right         |
+| Left         |    Center      |         Right |
 ```
 
-## Mattermost-like Styling (Optional CSS)
+## Requirements
 
-To make Rocket.Chat look more like Mattermost, add this CSS in **Administration** → **Settings** → **Layout** → **Custom CSS**:
+- Rocket.Chat 6.0 or newer
+- Apps Framework enabled
+- Administrator access for installation
 
-```css
-/* Mattermost-like styling */
+## Troubleshooting
 
-/* Sidebar */
-.sidebar {
-    background-color: #1e325c !important;
-}
+### App doesn't appear after upload
+- Make sure **Enable development mode** is set to `True` in Settings → General → Apps
+- Try refreshing the page after enabling
 
-.sidebar-item:hover {
-    background-color: #28427b !important;
-}
+### Tables not rendering
+- Check that the app is enabled in Administration → Apps → Private Apps
+- Verify the app status shows "Enabled"
+- Make sure your table has the separator row (e.g., `|---|---|`)
 
-/* Message styling */
-.message {
-    padding: 8px 16px !important;
-    border-bottom: 1px solid #e0e0e0 !important;
-}
-
-/* Username styling */
-.message .user-card-message {
-    font-weight: 600 !important;
-    color: #3d3c40 !important;
-}
-
-/* Attachment table fields */
-.attachment-fields {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
-    gap: 8px !important;
-}
-
-.attachment-field {
-    background: #f8f8f8 !important;
-    padding: 8px !important;
-    border-radius: 4px !important;
-    border-left: 3px solid #4A90A4 !important;
-}
-
-.attachment-field-title {
-    font-weight: 600 !important;
-    color: #1e325c !important;
-    margin-bottom: 4px !important;
-}
-```
-
-## Development
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-- Rocket.Chat Apps CLI (`npm install -g @rocket.chat/apps-cli`)
-
-### Building
-
-```bash
-npm install
-npm run build
-```
-
-This creates a `.zip` file that can be uploaded to Rocket.Chat.
-
-### Testing locally
-
-1. Enable Apps development mode in Rocket.Chat:
-   - Go to **Administration** → **General** → **Apps**
-   - Enable "Enable development mode"
-
-2. Deploy the app:
-   ```bash
-   rc-apps deploy --url http://localhost:3000 --username admin --password admin
-   ```
-
-## Architecture
-
-The app uses the `IPreMessageSentModify` hook to intercept messages before they are saved:
-
-1. **Check phase**: `checkPreMessageSentModify` - Quick check if message contains potential tables
-2. **Modify phase**: `executePreMessageSentModify` - Parse tables and convert to attachments
-
-### Table Parser
-
-The `lib/tableParser.ts` module handles GFM table parsing:
-
-- `parseMarkdownTable(text)` - Extract all tables from text
-- `TableData` interface - Structured table representation with headers, rows, and alignments
+### Permission errors
+- Ensure you're logged in as an administrator
+- The app requires `message.read` and `message.write` permissions
 
 ## License
 
