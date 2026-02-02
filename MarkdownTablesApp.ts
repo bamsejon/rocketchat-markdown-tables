@@ -60,14 +60,14 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
     }
 
     private createFormattedTable(table: TableData): string {
-        // Calculate column widths
+        // Calculate column widths using display width (accounting for emojis)
         const colWidths: number[] = [];
         for (let i = 0; i < table.headers.length; i++) {
-            let maxWidth = table.headers[i].length;
+            let maxWidth = this.getDisplayWidth(table.headers[i]);
             for (const row of table.rows) {
-                const cellLen = (row[i] || '').length;
-                if (cellLen > maxWidth) {
-                    maxWidth = cellLen;
+                const cellWidth = this.getDisplayWidth(row[i] || '');
+                if (cellWidth > maxWidth) {
+                    maxWidth = cellWidth;
                 }
             }
             colWidths.push(maxWidth);
@@ -106,8 +106,32 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         return lines.join('\n');
     }
 
-    private padCell(text: string, width: number, align: string): string {
-        const padding = width - text.length;
+    // Calculate display width accounting for emojis (which typically render as 2 chars wide)
+    private getDisplayWidth(text: string): number {
+        // Match emojis - they typically display as 2 characters wide in monospace
+        const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{2705}]|[\u{274C}]|[\u{274E}]|[\u{2714}]|[\u{2716}]/gu;
+
+        let width = 0;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = emojiRegex.exec(text)) !== null) {
+            // Add width of text before this emoji
+            width += match.index - lastIndex;
+            // Emojis display as 2 characters wide
+            width += 2;
+            lastIndex = match.index + match[0].length;
+        }
+
+        // Add remaining text after last emoji
+        width += text.length - lastIndex;
+
+        return width;
+    }
+
+    private padCell(text: string, targetWidth: number, align: string): string {
+        const currentWidth = this.getDisplayWidth(text);
+        const padding = targetWidth - currentWidth;
         if (padding <= 0) return text;
 
         if (align === 'center') {
