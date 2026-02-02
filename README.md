@@ -15,7 +15,7 @@ A Rocket.Chat App that adds markdown table support by rendering tables as format
 
 ### Quick Install (Recommended)
 
-1. **Download** the latest release: [`markdown-tables_1.6.0.zip`](https://github.com/bamsejon/rocketchat-markdown-tables/releases/latest)
+1. **Download** the latest release from [Releases](https://github.com/bamsejon/rocketchat-markdown-tables/releases)
 
 2. **Enable Apps in Rocket.Chat:**
    - Log in as administrator
@@ -27,7 +27,7 @@ A Rocket.Chat App that adds markdown table support by rendering tables as format
 3. **Install the App:**
    - Go to **Administration** → **Apps** → **Private Apps**
    - Click **Upload App**
-   - Select the downloaded `markdown-tables_1.6.0.zip` file
+   - Select the downloaded `.zip` file
    - Click **Install**
    - When prompted, click **Agree** to accept permissions
 
@@ -48,7 +48,7 @@ npm install
 # Build the app
 npm run build
 
-# The zip file will be in dist/markdown-tables_1.6.0.zip
+# The zip file will be created in dist/
 ```
 
 ## Usage
