@@ -180,3 +180,124 @@ export function tableToFormattedText(table: TableData): string {
 
     return lines.join('\n');
 }
+
+/**
+ * Detect if text contains tab-separated values (e.g., copied from Excel)
+ * Returns true if the text looks like TSV data
+ */
+export function isTsvData(text: string): boolean {
+    const lines = text.split('\n').filter(line => line.trim().length > 0);
+
+    // Need at least 2 lines (header + data)
+    if (lines.length < 2) {
+        return false;
+    }
+
+    // Check if lines contain tabs
+    const tabCounts = lines.map(line => (line.match(/\t/g) || []).length);
+
+    // All lines should have at least one tab
+    if (tabCounts.some(count => count === 0)) {
+        return false;
+    }
+
+    // All lines should have the same number of tabs (same column count)
+    const firstCount = tabCounts[0];
+    if (!tabCounts.every(count => count === firstCount)) {
+        return false;
+    }
+
+    // Should not already be a markdown table (no pipes except in cell content)
+    // If all lines have pipes at similar positions, it's probably markdown
+    const hasPipeStructure = lines.every(line => {
+        const trimmed = line.trim();
+        return trimmed.startsWith('|') || trimmed.endsWith('|');
+    });
+
+    if (hasPipeStructure) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Convert tab-separated values to markdown table format
+ * First row is treated as headers
+ */
+export function convertTsvToMarkdown(text: string): string {
+    const lines = text.split('\n');
+    const result: string[] = [];
+    let inTsvBlock = false;
+    let tsvLines: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const hasTab = line.includes('\t');
+
+        if (hasTab) {
+            if (!inTsvBlock) {
+                inTsvBlock = true;
+                tsvLines = [];
+            }
+            tsvLines.push(line);
+        } else {
+            if (inTsvBlock && tsvLines.length >= 2) {
+                // Convert accumulated TSV lines to markdown
+                result.push(tsvBlockToMarkdown(tsvLines));
+            } else if (inTsvBlock && tsvLines.length === 1) {
+                // Single line with tabs - just keep as is
+                result.push(tsvLines[0]);
+            }
+            inTsvBlock = false;
+            tsvLines = [];
+            result.push(line);
+        }
+    }
+
+    // Handle TSV block at end of text
+    if (inTsvBlock && tsvLines.length >= 2) {
+        result.push(tsvBlockToMarkdown(tsvLines));
+    } else if (inTsvBlock && tsvLines.length === 1) {
+        result.push(tsvLines[0]);
+    }
+
+    return result.join('\n');
+}
+
+/**
+ * Convert a block of TSV lines to markdown table format
+ */
+function tsvBlockToMarkdown(lines: string[]): string {
+    const rows = lines
+        .filter(line => line.trim().length > 0)
+        .map(line => line.split('\t').map(cell => cell.trim()));
+
+    if (rows.length < 1) {
+        return lines.join('\n');
+    }
+
+    // First row is header
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    // Build markdown table
+    const mdLines: string[] = [];
+
+    // Header row
+    mdLines.push('| ' + headers.join(' | ') + ' |');
+
+    // Separator row
+    mdLines.push('| ' + headers.map(() => '---').join(' | ') + ' |');
+
+    // Data rows
+    for (const row of dataRows) {
+        // Pad row to match header length
+        while (row.length < headers.length) {
+            row.push('');
+        }
+        mdLines.push('| ' + row.slice(0, headers.length).join(' | ') + ' |');
+    }
+
+    return mdLines.join('\n');
+}

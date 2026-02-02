@@ -10,7 +10,7 @@ import { App } from '@rocket.chat/apps-engine/definition/App';
 import { IAppInfo } from '@rocket.chat/apps-engine/definition/metadata';
 import { IMessage, IPreMessageSentModify } from '@rocket.chat/apps-engine/definition/messages';
 
-import { parseMarkdownTable, TableData } from './lib/tableParser';
+import { parseMarkdownTable, TableData, convertTsvToMarkdown } from './lib/tableParser';
 
 export class MarkdownTablesApp extends App implements IPreMessageSentModify {
     constructor(info: IAppInfo, logger: ILogger, accessors: IAppAccessors) {
@@ -25,7 +25,10 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         if (!message.text) {
             return false;
         }
-        return message.text.includes('|') && message.text.includes('\n');
+        // Check for markdown tables (pipes) or TSV data (tabs)
+        const hasMarkdownTable = message.text.includes('|') && message.text.includes('\n');
+        const hasTsvData = message.text.includes('\t') && message.text.includes('\n');
+        return hasMarkdownTable || hasTsvData;
     }
 
     public async executePreMessageSentModify(
@@ -39,13 +42,19 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             return message;
         }
 
-        const tables = parseMarkdownTable(message.text);
+        // First, convert any TSV data (e.g., pasted from Excel) to markdown format
+        let processedText = message.text;
+        if (message.text.includes('\t')) {
+            processedText = convertTsvToMarkdown(message.text);
+        }
+
+        const tables = parseMarkdownTable(processedText);
 
         if (tables.length === 0) {
             return message;
         }
 
-        let modifiedText = message.text;
+        let modifiedText = processedText;
 
         for (const table of tables) {
             const formattedTable = this.createFormattedTable(table);
