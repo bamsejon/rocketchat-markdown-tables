@@ -1,6 +1,5 @@
 import {
     IAppAccessors,
-    IConfigurationExtend,
     ILogger,
     IHttp,
     IMessageBuilder,
@@ -10,7 +9,6 @@ import {
 import { App } from '@rocket.chat/apps-engine/definition/App';
 import { IAppInfo } from '@rocket.chat/apps-engine/definition/metadata';
 import { IMessage, IPreMessageSentModify } from '@rocket.chat/apps-engine/definition/messages';
-import { IMessageAttachment, IMessageAttachmentField } from '@rocket.chat/apps-engine/definition/messages';
 
 import { parseMarkdownTable, TableData } from './lib/tableParser';
 
@@ -24,11 +22,9 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         read: IRead,
         http: IHttp
     ): Promise<boolean> {
-        // Only process messages that contain potential tables
         if (!message.text) {
             return false;
         }
-        // Check for pipe characters which indicate a potential table
         return message.text.includes('|') && message.text.includes('\n');
     }
 
@@ -49,73 +45,79 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             return message;
         }
 
-        // Convert tables to attachments
-        const attachments: IMessageAttachment[] = message.attachments || [];
         let modifiedText = message.text;
 
         for (const table of tables) {
-            // Create an attachment for each table
-            const attachment = this.createTableAttachment(table);
-            attachments.push(attachment);
-
-            // Remove the table from the message text
-            modifiedText = modifiedText.replace(table.rawText, '');
+            const formattedTable = this.createFormattedTable(table);
+            modifiedText = modifiedText.replace(table.rawText, formattedTable);
         }
 
-        // Clean up extra newlines
         modifiedText = modifiedText.replace(/\n{3,}/g, '\n\n').trim();
 
-        builder.setText(modifiedText || ' ');
-        builder.setAttachments(attachments);
+        builder.setText(modifiedText);
 
         return builder.getMessage();
     }
 
-    private createTableAttachment(table: TableData): IMessageAttachment {
-        const fields: IMessageAttachmentField[] = [];
-
-        // For each row, create a formatted display
-        for (let rowIndex = 0; rowIndex < table.rows.length; rowIndex++) {
-            const row = table.rows[rowIndex];
-
-            // Create a field for each row showing all columns
-            const rowValues: string[] = [];
-            for (let colIndex = 0; colIndex < table.headers.length; colIndex++) {
-                const header = table.headers[colIndex];
-                const value = row[colIndex] || '';
-                rowValues.push(`**${header}:** ${value}`);
+    private createFormattedTable(table: TableData): string {
+        // Calculate column widths
+        const colWidths: number[] = [];
+        for (let i = 0; i < table.headers.length; i++) {
+            let maxWidth = table.headers[i].length;
+            for (const row of table.rows) {
+                const cellLen = (row[i] || '').length;
+                if (cellLen > maxWidth) {
+                    maxWidth = cellLen;
+                }
             }
+            colWidths.push(maxWidth);
+        }
 
-            fields.push({
-                short: false,
-                title: `Row ${rowIndex + 1}`,
-                value: rowValues.join('\n'),
+        const lines: string[] = [];
+
+        // Build separator line
+        const separatorParts = colWidths.map(w => '─'.repeat(w + 2));
+        const topBorder = '┌' + separatorParts.join('┬') + '┐';
+        const headerSeparator = '├' + separatorParts.join('┼') + '┤';
+        const bottomBorder = '└' + separatorParts.join('┴') + '┘';
+
+        // Header row
+        const headerCells = table.headers.map((h, i) => {
+            return ' ' + this.padCell(h, colWidths[i], table.alignments[i]) + ' ';
+        });
+        const headerLine = '│' + headerCells.join('│') + '│';
+
+        lines.push('```');
+        lines.push(topBorder);
+        lines.push(headerLine);
+        lines.push(headerSeparator);
+
+        // Data rows
+        for (const row of table.rows) {
+            const cells = row.map((cell, i) => {
+                return ' ' + this.padCell(cell || '', colWidths[i], table.alignments[i]) + ' ';
             });
+            lines.push('│' + cells.join('│') + '│');
         }
 
-        // Alternative: Create fields per column for smaller tables
-        if (table.rows.length <= 5 && table.headers.length <= 4) {
-            fields.length = 0; // Clear and use column-based layout
+        lines.push(bottomBorder);
+        lines.push('```');
 
-            for (let colIndex = 0; colIndex < table.headers.length; colIndex++) {
-                const header = table.headers[colIndex];
-                const values = table.rows.map(row => row[colIndex] || '-').join('\n');
+        return lines.join('\n');
+    }
 
-                fields.push({
-                    short: table.headers.length > 2,
-                    title: header,
-                    value: values,
-                });
-            }
+    private padCell(text: string, width: number, align: string): string {
+        const padding = width - text.length;
+        if (padding <= 0) return text;
+
+        if (align === 'center') {
+            const left = Math.floor(padding / 2);
+            const right = padding - left;
+            return ' '.repeat(left) + text + ' '.repeat(right);
+        } else if (align === 'right') {
+            return ' '.repeat(padding) + text;
+        } else {
+            return text + ' '.repeat(padding);
         }
-
-        return {
-            color: '#4A90A4',
-            title: {
-                value: 'Table',
-            },
-            fields,
-            collapsed: false,
-        };
     }
 }

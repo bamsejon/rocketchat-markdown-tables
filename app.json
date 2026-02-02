@@ -1,6 +1,6 @@
 {
     "id": "af6055ec-ff1e-4f2b-89a2-5f475bf9f0a9",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "requiredApiVersion": "^1.41.0",
     "iconFile": "icon.png",
     "author": {
@@ -11,7 +11,7 @@
     "name": "Markdown Tables",
     "nameSlug": "markdown-tables",
     "classFile": "MarkdownTablesApp.ts",
-    "description": "Adds markdown table support to Rocket.Chat by converting tables to formatted attachments",
+    "description": "Adds markdown table support to Rocket.Chat by rendering tables as formatted ASCII tables",
     "implements": [
         "IPreMessageSentModify"
     ],
