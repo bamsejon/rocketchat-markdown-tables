@@ -2,18 +2,23 @@
 
 # Rocket.Chat Markdown Tables
 
-A Rocket.Chat App that adds markdown table support by rendering tables as formatted ASCII tables in code blocks.
+A Rocket.Chat App that renders markdown tables beautifully - either as SVG images or ASCII art.
 
 <br clear="left">
 
 ## Features
 
-- Parses GitHub Flavored Markdown (GFM) tables
+- **Three rendering modes:**
+  - **Cards (SVG)** - Beautiful graphical tables, perfect for mobile
+  - **Unicode** - Box-drawing characters (┌─┬─┐)
+  - **ASCII** - Classic style (+, -, |)
 - **Paste from Excel/Sheets** - Tab-separated data is automatically converted to tables
-- Renders beautiful ASCII box-drawing tables
+- **Clickable links** - URLs in tables are extracted and shown as clickable links below
+- **/tableprefs command** - Users can customize their own display preferences
+- **Multilingual** - Help text in 11 languages (auto-detect or admin-configured)
+- Parses GitHub Flavored Markdown (GFM) tables
 - Supports column alignment (left, center, right)
-- Handles emojis correctly (proper column width calculation)
-- Works with any number of columns and rows
+- Handles emojis correctly
 
 ## Installation
 
@@ -35,9 +40,10 @@ A Rocket.Chat App that adds markdown table support by rendering tables as format
    - Click **Install**
    - When prompted, click **Agree** to accept permissions
 
-4. **Verify Installation:**
-   - The app should now show as "Enabled" in Private Apps
-   - Try sending a message with a markdown table to test!
+4. **Configure (optional):**
+   - Go to **Administration** → **Apps** → **Markdown Tables** → **Settings**
+   - Choose table style: Cards (SVG), Unicode, or ASCII
+   - Configure link display and language preferences
 
 ### Build from Source
 
@@ -68,7 +74,13 @@ Write standard markdown tables in your messages:
 | Bob     | 25  | Göteborg  |
 ```
 
-The app converts this to a formatted ASCII table:
+### Rendering Modes
+
+**Cards (SVG)** - Clean graphical table, works great on mobile:
+
+![SVG Table Example](https://via.placeholder.com/300x100?text=Beautiful+SVG+Table)
+
+**Unicode** - Box-drawing characters:
 
 ```
 ┌─────────┬───────┬───────────┐
@@ -79,14 +91,32 @@ The app converts this to a formatted ASCII table:
 └─────────┴───────┴───────────┘
 ```
 
-### Paste from Excel/Spreadsheets
-
-Copy cells from Excel, Google Sheets, or any spreadsheet and paste directly into Rocket.Chat. The tab-separated data is automatically converted to a table!
+**ASCII** - Classic style:
 
 ```
-Name    Age    City           →    Becomes a formatted table!
-Alice   30     Stockholm
-Bob     25     Göteborg
++---------+-------+-----------+
+| Name    | Age   | City      |
++---------+-------+-----------+
+| Alice   | 30    | Stockholm |
+| Bob     | 25    | Göteborg  |
++---------+-------+-----------+
+```
+
+### Paste from Excel/Spreadsheets
+
+Copy cells from Excel, Google Sheets, or any spreadsheet and paste directly into Rocket.Chat. Tab-separated data is automatically converted!
+
+### Links in Tables
+
+URLs in table cells are automatically extracted and displayed as clickable links below the table. Use `/tableprefs links off` to disable this.
+
+### User Preferences
+
+Users can customize their own table display:
+
+```
+/tableprefs links on    - Show links below tables
+/tableprefs links off   - Hide links below tables
 ```
 
 ### Column Alignment
@@ -98,6 +128,18 @@ The app supports standard GFM alignment syntax:
 |:-------------|:--------------:|--------------:|
 | Left         |    Center      |         Right |
 ```
+
+## Configuration
+
+Go to **Administration** → **Apps** → **Markdown Tables** → **Settings**
+
+| Setting | Description |
+|---------|-------------|
+| Table Style | Cards (SVG), Unicode, or ASCII |
+| Show links below table | Extract and display clickable links |
+| Disable link previews | Prevent automatic URL previews |
+| Default show links | Default setting for new users |
+| Help text language | Auto-detect or select specific language |
 
 ## Requirements
 
@@ -116,26 +158,27 @@ The app supports standard GFM alignment syntax:
 - Verify the app status shows "Enabled"
 - Make sure your table has the separator row (e.g., `|---|---|`)
 
-### Permission errors
-- Ensure you're logged in as an administrator
-- The app requires `message.read` and `message.write` permissions
+### SVG tables not displaying
+- Ensure you're using Cards mode in app settings
+- Some older Rocket.Chat versions may not support data URL images
 
 ## Changelog
 
+### v1.9.7
+- Fixed SVG rendering when tables contain links
+- Improved URL deduplication
+- Links displayed before table image for proper rendering
+
 ### v1.9.0
-- **Cards mode** - New mobile-friendly table rendering using SVG images
-- **Clickable links in tables** - URLs in table cells are rendered as clickable links
-- **/tableprefs command** - Users can customize their own table display preferences
-- **Multilingual help text** - Support for 11 languages (auto-detect or admin-configured)
-- Links shown below table image for mobile app compatibility
-- Smart help text that only appears when table contains links
+- **Cards mode** - SVG table rendering
+- **Clickable links** - URLs extracted and shown below tables
+- **/tableprefs command** - User preferences
+- **Multilingual help text** - 11 languages supported
 
 ### v1.8.0
 - Extract and display clickable links below tables
 - Support both markdown links and plain URLs
-- Add setting to toggle link display below tables
-- Add setting to disable link previews
-- Fixed icon color (black table on red background) - previous version had white table which was hard to distinguish for colorblind users
+- Add setting to toggle link display
 
 ## License
 
