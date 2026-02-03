@@ -1,5 +1,5 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" fill="#4A90A4" rx="64"/>
+  <rect width="512" height="512" fill="#D70000" rx="64"/>
   <g fill="white">
     <!-- Table icon -->
     <rect x="96" y="128" width="320" height="256" fill="none" stroke="white" stroke-width="24" rx="16"/>
