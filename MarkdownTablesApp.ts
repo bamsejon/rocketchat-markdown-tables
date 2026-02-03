@@ -39,12 +39,32 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             packageValue: 'unicode',
             required: false,
             public: false,
-            i18nLabel: 'Table_Style',
-            i18nDescription: 'Table_Style_Description',
+            i18nLabel: 'Table Style',
+            i18nDescription: 'Choose the character set for table borders',
             values: [
-                { key: 'unicode', i18nLabel: 'Table_Style_Unicode' },
-                { key: 'ascii', i18nLabel: 'Table_Style_ASCII' },
+                { key: 'unicode', i18nLabel: 'Unicode (box-drawing)' },
+                { key: 'ascii', i18nLabel: 'ASCII (+, -, |)' },
             ],
+        });
+
+        await configuration.settings.provideSetting({
+            id: 'show_links_below',
+            type: SettingType.BOOLEAN,
+            packageValue: true,
+            required: false,
+            public: false,
+            i18nLabel: 'Show links below table',
+            i18nDescription: 'Extract links from table cells and display them as clickable links below the table',
+        });
+
+        await configuration.settings.provideSetting({
+            id: 'disable_link_previews',
+            type: SettingType.BOOLEAN,
+            packageValue: true,
+            required: false,
+            public: false,
+            i18nLabel: 'Disable link previews',
+            i18nDescription: 'Disable automatic link previews for messages containing tables',
         });
     }
 
@@ -85,14 +105,21 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             return message;
         }
 
-        // Get table style setting
+        // Get settings
         const tableStyle = await read.getEnvironmentReader().getSettings().getValueById('table_style');
+        const showLinksBelow = await read.getEnvironmentReader().getSettings().getValueById('show_links_below');
+        const disableLinkPreviews = await read.getEnvironmentReader().getSettings().getValueById('disable_link_previews');
         const chars = tableStyle === 'ascii' ? ASCII_CHARS : UNICODE_CHARS;
+
+        // Disable link previews if setting is enabled
+        if (disableLinkPreviews !== false) {
+            builder.setParseUrls(false);
+        }
 
         let modifiedText = processedText;
 
         for (const table of tables) {
-            const formattedTable = this.createFormattedTable(table, chars);
+            const formattedTable = this.createFormattedTable(table, chars, showLinksBelow !== false);
             modifiedText = modifiedText.replace(table.rawText, formattedTable);
         }
 
@@ -103,12 +130,47 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         return builder.getMessage();
     }
 
-    private createFormattedTable(table: TableData, chars: typeof UNICODE_CHARS): string {
+    private createFormattedTable(table: TableData, chars: typeof UNICODE_CHARS, showLinksBelow: boolean): string {
+        // Extract all links from the table for display after the code block
+        const links: { text: string; url: string }[] = [];
+        const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+        const plainUrlRegex = /(https?:\/\/[^\s]+)/g;
+
+        // Function to extract links and replace with just the text
+        const extractLinks = (text: string): string => {
+            // First extract markdown links
+            let result = text.replace(markdownLinkRegex, (match, linkText, url) => {
+                links.push({ text: linkText, url });
+                return linkText;
+            });
+
+            // Then extract plain URLs
+            result = result.replace(plainUrlRegex, (url) => {
+                // Don't add if already added as markdown link
+                if (!links.some(l => l.url === url)) {
+                    // Use domain as display text for plain URLs
+                    try {
+                        const domain = new URL(url).hostname;
+                        links.push({ text: domain, url });
+                    } catch {
+                        links.push({ text: url, url });
+                    }
+                }
+                return url;
+            });
+
+            return result;
+        };
+
+        // Process headers and rows to extract links
+        const processedHeaders = table.headers.map(h => extractLinks(h));
+        const processedRows = table.rows.map(row => row.map(cell => extractLinks(cell || '')));
+
         // Calculate column widths using display width (accounting for emojis)
         const colWidths: number[] = [];
-        for (let i = 0; i < table.headers.length; i++) {
-            let maxWidth = this.getDisplayWidth(table.headers[i]);
-            for (const row of table.rows) {
+        for (let i = 0; i < processedHeaders.length; i++) {
+            let maxWidth = this.getDisplayWidth(processedHeaders[i]);
+            for (const row of processedRows) {
                 const cellWidth = this.getDisplayWidth(row[i] || '');
                 if (cellWidth > maxWidth) {
                     maxWidth = cellWidth;
@@ -126,7 +188,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const bottomBorder = chars.bottomLeft + separatorParts.join(chars.teeUp) + chars.bottomRight;
 
         // Header row
-        const headerCells = table.headers.map((h, i) => {
+        const headerCells = processedHeaders.map((h, i) => {
             return ' ' + this.padCell(h, colWidths[i], table.alignments[i]) + ' ';
         });
         const headerLine = chars.vertical + headerCells.join(chars.vertical) + chars.vertical;
@@ -137,7 +199,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         lines.push(headerSeparator);
 
         // Data rows - clean and simple with solid vertical lines
-        for (const row of table.rows) {
+        for (const row of processedRows) {
             const cells = row.map((cell, i) => {
                 return ' ' + this.padCell(cell || '', colWidths[i], table.alignments[i]) + ' ';
             });
@@ -146,6 +208,18 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
 
         lines.push(bottomBorder);
         lines.push('```');
+
+        // Add extracted links below the table if setting is enabled and links were found
+        if (showLinksBelow && links.length > 0) {
+            lines.push('');
+            // Remove duplicates
+            const uniqueLinks = links.filter((link, index, self) =>
+                index === self.findIndex(l => l.url === link.url)
+            );
+            for (const link of uniqueLinks) {
+                lines.push(`🔗 [${link.text}](${link.url})`);
+            }
+        }
 
         return lines.join('\n');
     }
