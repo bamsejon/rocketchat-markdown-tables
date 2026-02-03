@@ -116,6 +116,15 @@ The app supports standard GFM alignment syntax:
 - Ensure you're logged in as an administrator
 - The app requires `message.read` and `message.write` permissions
 
+## Changelog
+
+### v1.8.0
+- Extract and display clickable links below tables
+- Support both markdown links and plain URLs
+- Add setting to toggle link display below tables
+- Add setting to disable link previews
+- Fixed icon color (black table on red background) - previous version had white table which was hard to distinguish for colorblind users
+
 ## License
 
 MIT
