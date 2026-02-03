@@ -1,6 +1,6 @@
 {
     "name": "rocketchat-markdown-tables",
-    "version": "1.0.0",
+    "version": "1.8.0",
     "description": "Rocket.Chat App for markdown table support",
     "main": "MarkdownTablesApp.ts",
     "scripts": {
