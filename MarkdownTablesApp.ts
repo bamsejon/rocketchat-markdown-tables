@@ -236,7 +236,6 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const borderColor = '#333333';
         const textColor = '#000000';
         const headerTextColor = '#FFFFFF';
-        const linkColor = '#0066CC';
 
         // Calculate column widths based on content
         const colWidths: number[] = [];
@@ -253,8 +252,8 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const totalWidth = colWidths.reduce((a, b) => a + b, 0);
         const totalHeight = rowHeight * (table.rows.length + 1); // +1 for header
 
-        let svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${totalWidth}" height="${totalHeight}">`;
-        svg += `<style>text { font-family: Arial, sans-serif; font-size: ${fontSize}px; } a:hover text { text-decoration: underline; }</style>`;
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}">`;
+        svg += `<style>text { font-family: Arial, sans-serif; font-size: ${fontSize}px; }</style>`;
 
         // Draw cells
         let y = 0;
@@ -274,17 +273,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             for (let col = 0; col < table.headers.length; col++) {
                 const cellValue = row[col] || '';
                 svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${cellBg}" stroke="${borderColor}" stroke-width="1"/>`;
-
-                // Check if cell contains a URL
-                const urlMatch = cellValue.match(/^(https?:\/\/[^\s]+)$/);
-                if (urlMatch) {
-                    // Render as clickable link
-                    svg += `<a xlink:href="${this.escapeXml(urlMatch[1])}" target="_blank">`;
-                    svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${linkColor}" text-decoration="underline">${this.escapeXml(cellValue)}</text>`;
-                    svg += `</a>`;
-                } else {
-                    svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${textColor}">${this.escapeXml(cellValue)}</text>`;
-                }
+                svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${textColor}">${this.escapeXml(cellValue)}</text>`;
                 x += colWidths[col];
             }
             y += rowHeight;
@@ -345,47 +334,47 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const texts: { [key: string]: { on: string; off: string } } = {
             sv: {
                 on: 'Använd /tableprefs links off för att dölja länkarna under tabellen',
-                off: 'Använd /tableprefs links on för att visa länkarna under tabellen (t.ex. om du använder mobilappen)',
+                off: 'Använd /tableprefs links on för att visa länkarna under tabellen',
             },
             en: {
                 on: 'Use /tableprefs links off to hide links below the table',
-                off: 'Use /tableprefs links on to show links below the table (e.g. if using the mobile app)',
+                off: 'Use /tableprefs links on to show links below the table',
             },
             de: {
                 on: 'Verwenden Sie /tableprefs links off um Links unter der Tabelle auszublenden',
-                off: 'Verwenden Sie /tableprefs links on um Links unter der Tabelle anzuzeigen (z.B. bei Nutzung der mobilen App)',
+                off: 'Verwenden Sie /tableprefs links on um Links unter der Tabelle anzuzeigen',
             },
             fr: {
                 on: 'Utilisez /tableprefs links off pour masquer les liens sous le tableau',
-                off: 'Utilisez /tableprefs links on pour afficher les liens sous le tableau (par ex. si vous utilisez l\'app mobile)',
+                off: 'Utilisez /tableprefs links on pour afficher les liens sous le tableau',
             },
             es: {
                 on: 'Usa /tableprefs links off para ocultar los enlaces debajo de la tabla',
-                off: 'Usa /tableprefs links on para mostrar los enlaces debajo de la tabla (ej. si usas la app móvil)',
+                off: 'Usa /tableprefs links on para mostrar los enlaces debajo de la tabla',
             },
             pt: {
                 on: 'Use /tableprefs links off para ocultar os links abaixo da tabela',
-                off: 'Use /tableprefs links on para mostrar os links abaixo da tabela (ex. se estiver usando o app móvel)',
+                off: 'Use /tableprefs links on para mostrar os links abaixo da tabela',
             },
             nl: {
                 on: 'Gebruik /tableprefs links off om links onder de tabel te verbergen',
-                off: 'Gebruik /tableprefs links on om links onder de tabel te tonen (bijv. bij gebruik van de mobiele app)',
+                off: 'Gebruik /tableprefs links on om links onder de tabel te tonen',
             },
             it: {
                 on: 'Usa /tableprefs links off per nascondere i link sotto la tabella',
-                off: 'Usa /tableprefs links on per mostrare i link sotto la tabella (es. se usi l\'app mobile)',
+                off: 'Usa /tableprefs links on per mostrare i link sotto la tabella',
             },
             ru: {
                 on: 'Используйте /tableprefs links off чтобы скрыть ссылки под таблицей',
-                off: 'Используйте /tableprefs links on чтобы показать ссылки под таблицей (напр. при использовании мобильного приложения)',
+                off: 'Используйте /tableprefs links on чтобы показать ссылки под таблицей',
             },
             ja: {
                 on: '/tableprefs links off でテーブル下のリンクを非表示にできます',
-                off: '/tableprefs links on でテーブル下にリンクを表示できます（モバイルアプリ使用時など）',
+                off: '/tableprefs links on でテーブル下にリンクを表示できます',
             },
             zh: {
                 on: '使用 /tableprefs links off 隐藏表格下方的链接',
-                off: '使用 /tableprefs links on 显示表格下方的链接（例如使用移动应用时）',
+                off: '使用 /tableprefs links on 显示表格下方的链接',
             },
         };
 
