@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="238" height="114">
+  <style>text { font-family: Arial, sans-serif; font-size: 14px; }</style>
+  <rect x="0" y="0" width="80" height="38" fill="#D70000" stroke="#333333" stroke-width="1"/>
+  <text x="10" y="24" fill="#FFFFFF" font-weight="bold">Name</text>
+  <rect x="80" y="0" width="60" height="38" fill="#D70000" stroke="#333333" stroke-width="1"/>
+  <text x="90" y="24" fill="#FFFFFF" font-weight="bold">Age</text>
+  <rect x="140" y="0" width="98" height="38" fill="#D70000" stroke="#333333" stroke-width="1"/>
+  <text x="150" y="24" fill="#FFFFFF" font-weight="bold">City</text>
+  <rect x="0" y="38" width="80" height="38" fill="#FFFFFF" stroke="#333333" stroke-width="1"/>
+  <text x="10" y="62" fill="#000000">Alice</text>
+  <rect x="80" y="38" width="60" height="38" fill="#FFFFFF" stroke="#333333" stroke-width="1"/>
+  <text x="90" y="62" fill="#000000">30</text>
+  <rect x="140" y="38" width="98" height="38" fill="#FFFFFF" stroke="#333333" stroke-width="1"/>
+  <text x="150" y="62" fill="#000000">Stockholm</text>
+  <rect x="0" y="76" width="80" height="38" fill="#FFFFFF" stroke="#333333" stroke-width="1"/>
+  <text x="10" y="100" fill="#000000">Bob</text>
+  <rect x="80" y="76" width="60" height="38" fill="#FFFFFF" stroke="#333333" stroke-width="1"/>
+  <text x="90" y="100" fill="#000000">25</text>
+  <rect x="140" y="76" width="98" height="38" fill="#FFFFFF" stroke="#333333" stroke-width="1"/>
+  <text x="150" y="100" fill="#000000">Göteborg</text>
+</svg>

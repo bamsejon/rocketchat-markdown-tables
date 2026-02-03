@@ -78,7 +78,7 @@ Write standard markdown tables in your messages:
 
 **Cards (SVG)** - Clean graphical table, works great on mobile:
 
-![SVG Table Example](https://via.placeholder.com/300x100?text=Beautiful+SVG+Table)
+![SVG Table Example](example-table.svg)
 
 **Unicode** - Box-drawing characters:
 
