@@ -1,6 +1,10 @@
+<img src="icon.png" width="64" height="64" align="left" style="margin-right: 16px">
+
 # Rocket.Chat Markdown Tables
 
 A Rocket.Chat App that adds markdown table support by rendering tables as formatted ASCII tables in code blocks.
+
+<br clear="left">
 
 ## Features
 
