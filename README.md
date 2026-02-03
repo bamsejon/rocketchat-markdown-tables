@@ -118,6 +118,14 @@ The app supports standard GFM alignment syntax:
 
 ## Changelog
 
+### v1.9.0
+- **Cards mode** - New mobile-friendly table rendering using SVG images
+- **Clickable links in tables** - URLs in table cells are rendered as clickable links
+- **/tableprefs command** - Users can customize their own table display preferences
+- **Multilingual help text** - Support for 11 languages (auto-detect or admin-configured)
+- Links shown below table image for mobile app compatibility
+- Smart help text that only appears when table contains links
+
 ### v1.8.0
 - Extract and display clickable links below tables
 - Support both markdown links and plain URLs

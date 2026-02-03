@@ -13,6 +13,7 @@ import { IMessage, IPreMessageSentModify } from '@rocket.chat/apps-engine/defini
 import { ISetting, SettingType } from '@rocket.chat/apps-engine/definition/settings';
 
 import { parseMarkdownTable, TableData, convertTsvToMarkdown } from './lib/tableParser';
+import { TablePrefsCommand, UserTablePrefs } from './commands/TablePrefsCommand';
 
 // Box-drawing character sets
 const UNICODE_CHARS = {
@@ -33,6 +34,9 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
     }
 
     public async extendConfiguration(configuration: IConfigurationExtend): Promise<void> {
+        // Register slash command for user preferences
+        await configuration.slashCommands.provideSlashCommand(new TablePrefsCommand());
+
         await configuration.settings.provideSetting({
             id: 'table_style',
             type: SettingType.SELECT,
@@ -40,10 +44,11 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             required: false,
             public: false,
             i18nLabel: 'Table Style',
-            i18nDescription: 'Choose the character set for table borders',
+            i18nDescription: 'Choose how tables are displayed',
             values: [
                 { key: 'unicode', i18nLabel: 'Unicode (box-drawing)' },
                 { key: 'ascii', i18nLabel: 'ASCII (+, -, |)' },
+                { key: 'cards', i18nLabel: 'Cards (mobile-friendly)' },
             ],
         });
 
@@ -65,6 +70,40 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             public: false,
             i18nLabel: 'Disable link previews',
             i18nDescription: 'Disable automatic link previews for messages containing tables',
+        });
+
+        await configuration.settings.provideSetting({
+            id: 'default_show_links_below',
+            type: SettingType.BOOLEAN,
+            packageValue: true,
+            required: false,
+            public: false,
+            i18nLabel: 'Default: Show links below table',
+            i18nDescription: 'Default setting for new users - whether to show links below table images. Users can override with /tableprefs command.',
+        });
+
+        await configuration.settings.provideSetting({
+            id: 'default_language',
+            type: SettingType.SELECT,
+            packageValue: 'auto',
+            required: false,
+            public: false,
+            i18nLabel: 'Help text language',
+            i18nDescription: 'Language for help text below tables. "Auto" tries to detect from user/server settings.',
+            values: [
+                { key: 'auto', i18nLabel: 'Auto-detect' },
+                { key: 'sv', i18nLabel: 'Svenska' },
+                { key: 'en', i18nLabel: 'English' },
+                { key: 'de', i18nLabel: 'Deutsch' },
+                { key: 'fr', i18nLabel: 'Français' },
+                { key: 'es', i18nLabel: 'Español' },
+                { key: 'pt', i18nLabel: 'Português' },
+                { key: 'nl', i18nLabel: 'Nederlands' },
+                { key: 'it', i18nLabel: 'Italiano' },
+                { key: 'ru', i18nLabel: 'Русский' },
+                { key: 'ja', i18nLabel: '日本語' },
+                { key: 'zh', i18nLabel: '中文' },
+            ],
         });
     }
 
@@ -109,13 +148,57 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const tableStyle = await read.getEnvironmentReader().getSettings().getValueById('table_style');
         const showLinksBelow = await read.getEnvironmentReader().getSettings().getValueById('show_links_below');
         const disableLinkPreviews = await read.getEnvironmentReader().getSettings().getValueById('disable_link_previews');
-        const chars = tableStyle === 'ascii' ? ASCII_CHARS : UNICODE_CHARS;
 
         // Disable link previews if setting is enabled
         if (disableLinkPreviews !== false) {
             builder.setParseUrls(false);
         }
 
+        // Handle cards (mobile-friendly) mode with SVG image
+        if (tableStyle === 'cards') {
+            // Get default setting and user preferences
+            const defaultShowLinks = await read.getEnvironmentReader().getSettings().getValueById('default_show_links_below');
+            const userPrefs = await this.getUserPrefs(read, message.sender.id, defaultShowLinks !== false);
+
+            // Get language for help text
+            const langSetting = await read.getEnvironmentReader().getSettings().getValueById('default_language');
+            let userLang = 'en';
+
+            if (langSetting && langSetting !== 'auto') {
+                // Use admin-configured language
+                userLang = langSetting as string;
+            } else {
+                // Auto-detect: try user settings, then server settings
+                if (message.sender.settings?.preferences?.language) {
+                    userLang = message.sender.settings.preferences.language;
+                } else {
+                    try {
+                        const serverLang = await read.getEnvironmentReader().getServerSettings().getValueById('Language');
+                        if (serverLang && typeof serverLang === 'string') {
+                            userLang = serverLang;
+                        }
+                    } catch (e) {
+                        // Ignore errors, use default
+                    }
+                }
+            }
+
+            let modifiedText = processedText;
+
+            for (const table of tables) {
+                // Replace table with SVG image
+                const cardText = this.createCardText(table, userPrefs.showLinksBelow, userLang);
+                modifiedText = modifiedText.replace(table.rawText, cardText);
+            }
+
+            modifiedText = modifiedText.replace(/\n{3,}/g, '\n\n').trim();
+            builder.setText(modifiedText);
+
+            return builder.getMessage();
+        }
+
+        // ASCII/Unicode mode
+        const chars = tableStyle === 'ascii' ? ASCII_CHARS : UNICODE_CHARS;
         let modifiedText = processedText;
 
         for (const table of tables) {
@@ -128,6 +211,198 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         builder.setText(modifiedText);
 
         return builder.getMessage();
+    }
+
+    private async getUserPrefs(read: IRead, userId: string, defaultShowLinks: boolean = true): Promise<UserTablePrefs> {
+        const association = TablePrefsCommand.getUserAssociation(userId);
+        const records = await read.getPersistenceReader().readByAssociation(association);
+
+        if (records && records.length > 0) {
+            return records[0] as UserTablePrefs;
+        }
+
+        // Default preferences from app settings
+        return {
+            showLinksBelow: defaultShowLinks,
+        };
+    }
+
+    private createCardText(table: TableData, showLinksBelow: boolean = true, userLang: string = 'en'): string {
+        // Generate SVG table
+        const cellPadding = 10;
+        const fontSize = 14;
+        const headerBg = '#D70000';
+        const cellBg = '#FFFFFF';
+        const borderColor = '#333333';
+        const textColor = '#000000';
+        const headerTextColor = '#FFFFFF';
+        const linkColor = '#0066CC';
+
+        // Calculate column widths based on content
+        const colWidths: number[] = [];
+        for (let i = 0; i < table.headers.length; i++) {
+            let maxLen = table.headers[i].length;
+            for (const row of table.rows) {
+                const cellLen = (row[i] || '').length;
+                if (cellLen > maxLen) maxLen = cellLen;
+            }
+            colWidths.push(Math.max(maxLen * 9 + cellPadding * 2, 80)); // ~9px per char
+        }
+
+        const rowHeight = fontSize + cellPadding * 2 + 4;
+        const totalWidth = colWidths.reduce((a, b) => a + b, 0);
+        const totalHeight = rowHeight * (table.rows.length + 1); // +1 for header
+
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${totalWidth}" height="${totalHeight}">`;
+        svg += `<style>text { font-family: Arial, sans-serif; font-size: ${fontSize}px; } a:hover text { text-decoration: underline; }</style>`;
+
+        // Draw cells
+        let y = 0;
+
+        // Header row
+        let x = 0;
+        for (let col = 0; col < table.headers.length; col++) {
+            svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${headerBg}" stroke="${borderColor}" stroke-width="1"/>`;
+            svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${headerTextColor}" font-weight="bold">${this.escapeXml(table.headers[col])}</text>`;
+            x += colWidths[col];
+        }
+        y += rowHeight;
+
+        // Data rows
+        for (const row of table.rows) {
+            x = 0;
+            for (let col = 0; col < table.headers.length; col++) {
+                const cellValue = row[col] || '';
+                svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${cellBg}" stroke="${borderColor}" stroke-width="1"/>`;
+
+                // Check if cell contains a URL
+                const urlMatch = cellValue.match(/^(https?:\/\/[^\s]+)$/);
+                if (urlMatch) {
+                    // Render as clickable link
+                    svg += `<a xlink:href="${this.escapeXml(urlMatch[1])}" target="_blank">`;
+                    svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${linkColor}" text-decoration="underline">${this.escapeXml(cellValue)}</text>`;
+                    svg += `</a>`;
+                } else {
+                    svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${textColor}">${this.escapeXml(cellValue)}</text>`;
+                }
+                x += colWidths[col];
+            }
+            y += rowHeight;
+        }
+
+        svg += '</svg>';
+
+        // Collect all links from the table
+        const links: { text: string; url: string }[] = [];
+        for (const row of table.rows) {
+            for (const cell of row) {
+                if (cell) {
+                    // Check for plain URLs
+                    const urlMatch = cell.match(/^(https?:\/\/[^\s]+)$/);
+                    if (urlMatch) {
+                        try {
+                            const domain = new URL(urlMatch[1]).hostname;
+                            links.push({ text: domain, url: urlMatch[1] });
+                        } catch {
+                            links.push({ text: urlMatch[1], url: urlMatch[1] });
+                        }
+                    }
+                    // Check for markdown links
+                    const mdLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                    let match;
+                    while ((match = mdLinkRegex.exec(cell)) !== null) {
+                        links.push({ text: match[1], url: match[2] });
+                    }
+                }
+            }
+        }
+
+        // Return as data URL that can be used in markdown
+        const base64 = Buffer.from(svg).toString('base64');
+        let result = `![Table](data:image/svg+xml;base64,${base64})`;
+
+        // Add links below the image for mobile compatibility (if enabled)
+        if (links.length > 0) {
+            if (showLinksBelow) {
+                const uniqueLinks = links.filter((link, index, self) =>
+                    index === self.findIndex(l => l.url === link.url)
+                );
+                result += '\n';
+                for (const link of uniqueLinks) {
+                    result += `\n🔗 [${link.text}](${link.url})`;
+                }
+            }
+
+            // Add help text about the tableprefs command
+            const helpText = this.getHelpText(userLang, showLinksBelow);
+            result += `\n\n_${helpText}_`;
+        }
+
+        return result;
+    }
+
+    private getHelpText(lang: string, showLinksBelow: boolean): string {
+        const texts: { [key: string]: { on: string; off: string } } = {
+            sv: {
+                on: 'Använd /tableprefs links off för att dölja länkarna under tabellen',
+                off: 'Använd /tableprefs links on för att visa länkarna under tabellen (t.ex. om du använder mobilappen)',
+            },
+            en: {
+                on: 'Use /tableprefs links off to hide links below the table',
+                off: 'Use /tableprefs links on to show links below the table (e.g. if using the mobile app)',
+            },
+            de: {
+                on: 'Verwenden Sie /tableprefs links off um Links unter der Tabelle auszublenden',
+                off: 'Verwenden Sie /tableprefs links on um Links unter der Tabelle anzuzeigen (z.B. bei Nutzung der mobilen App)',
+            },
+            fr: {
+                on: 'Utilisez /tableprefs links off pour masquer les liens sous le tableau',
+                off: 'Utilisez /tableprefs links on pour afficher les liens sous le tableau (par ex. si vous utilisez l\'app mobile)',
+            },
+            es: {
+                on: 'Usa /tableprefs links off para ocultar los enlaces debajo de la tabla',
+                off: 'Usa /tableprefs links on para mostrar los enlaces debajo de la tabla (ej. si usas la app móvil)',
+            },
+            pt: {
+                on: 'Use /tableprefs links off para ocultar os links abaixo da tabela',
+                off: 'Use /tableprefs links on para mostrar os links abaixo da tabela (ex. se estiver usando o app móvel)',
+            },
+            nl: {
+                on: 'Gebruik /tableprefs links off om links onder de tabel te verbergen',
+                off: 'Gebruik /tableprefs links on om links onder de tabel te tonen (bijv. bij gebruik van de mobiele app)',
+            },
+            it: {
+                on: 'Usa /tableprefs links off per nascondere i link sotto la tabella',
+                off: 'Usa /tableprefs links on per mostrare i link sotto la tabella (es. se usi l\'app mobile)',
+            },
+            ru: {
+                on: 'Используйте /tableprefs links off чтобы скрыть ссылки под таблицей',
+                off: 'Используйте /tableprefs links on чтобы показать ссылки под таблицей (напр. при использовании мобильного приложения)',
+            },
+            ja: {
+                on: '/tableprefs links off でテーブル下のリンクを非表示にできます',
+                off: '/tableprefs links on でテーブル下にリンクを表示できます（モバイルアプリ使用時など）',
+            },
+            zh: {
+                on: '使用 /tableprefs links off 隐藏表格下方的链接',
+                off: '使用 /tableprefs links on 显示表格下方的链接（例如使用移动应用时）',
+            },
+        };
+
+        // Get the base language (e.g., 'sv' from 'sv-SE')
+        const baseLang = lang.split('-')[0].toLowerCase();
+
+        const langTexts = texts[baseLang] || texts['en'];
+        return showLinksBelow ? langTexts.on : langTexts.off;
+    }
+
+    private escapeXml(text: string): string {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
     }
 
     private createFormattedTable(table: TableData, chars: typeof UNICODE_CHARS, showLinksBelow: boolean): string {

@@ -1,6 +1,6 @@
 {
     "id": "af6055ec-ff1e-4f2b-89a2-5f475bf9f0a9",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "requiredApiVersion": "^1.41.0",
     "iconFile": "icon.png",
     "author": {
@@ -11,7 +11,7 @@
     "name": "Markdown Tables",
     "nameSlug": "markdown-tables",
     "classFile": "MarkdownTablesApp.ts",
-    "description": "Adds markdown table support to Rocket.Chat by rendering tables as formatted ASCII tables",
+    "description": "Adds markdown table support to Rocket.Chat with mobile-friendly SVG rendering, clickable links, and user preferences",
     "implements": [
         "IPreMessageSentModify"
     ],
@@ -21,6 +21,12 @@
         },
         {
             "name": "message.read"
+        },
+        {
+            "name": "slashcommand"
+        },
+        {
+            "name": "persistence"
         }
     ]
 }
