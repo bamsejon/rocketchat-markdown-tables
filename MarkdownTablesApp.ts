@@ -228,6 +228,41 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
     }
 
     private createCardText(table: TableData, showLinksBelow: boolean = true, userLang: string = 'en'): string {
+        // Collect all links from the table before stripping markdown
+        const links: { text: string; url: string }[] = [];
+        for (const row of table.rows) {
+            for (const cell of row) {
+                if (cell) {
+                    // Check for plain URLs
+                    const urlMatch = cell.match(/(https?:\/\/[^\s\])]+)/);
+                    if (urlMatch) {
+                        try {
+                            const domain = new URL(urlMatch[1]).hostname;
+                            if (!links.some(l => l.url === urlMatch[1])) {
+                                links.push({ text: domain, url: urlMatch[1] });
+                            }
+                        } catch {
+                            if (!links.some(l => l.url === urlMatch[1])) {
+                                links.push({ text: urlMatch[1], url: urlMatch[1] });
+                            }
+                        }
+                    }
+                    // Check for markdown links
+                    const mdLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                    let match;
+                    while ((match = mdLinkRegex.exec(cell)) !== null) {
+                        if (!links.some(l => l.url === match[2])) {
+                            links.push({ text: match[1], url: match[2] });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Strip markdown from headers and rows for display
+        const strippedHeaders = table.headers.map(h => this.stripMarkdown(h));
+        const strippedRows = table.rows.map(row => row.map(cell => this.stripMarkdown(cell || '')));
+
         // Generate SVG table
         const cellPadding = 10;
         const fontSize = 14;
@@ -237,11 +272,11 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const textColor = '#000000';
         const headerTextColor = '#FFFFFF';
 
-        // Calculate column widths based on content
+        // Calculate column widths based on stripped content
         const colWidths: number[] = [];
-        for (let i = 0; i < table.headers.length; i++) {
-            let maxLen = table.headers[i].length;
-            for (const row of table.rows) {
+        for (let i = 0; i < strippedHeaders.length; i++) {
+            let maxLen = strippedHeaders[i].length;
+            for (const row of strippedRows) {
                 const cellLen = (row[i] || '').length;
                 if (cellLen > maxLen) maxLen = cellLen;
             }
@@ -250,7 +285,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
 
         const rowHeight = fontSize + cellPadding * 2 + 4;
         const totalWidth = colWidths.reduce((a, b) => a + b, 0);
-        const totalHeight = rowHeight * (table.rows.length + 1); // +1 for header
+        const totalHeight = rowHeight * (strippedRows.length + 1); // +1 for header
 
         let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}">`;
         svg += `<style>text { font-family: Arial, sans-serif; font-size: ${fontSize}px; }</style>`;
@@ -260,17 +295,17 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
 
         // Header row
         let x = 0;
-        for (let col = 0; col < table.headers.length; col++) {
+        for (let col = 0; col < strippedHeaders.length; col++) {
             svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${headerBg}" stroke="${borderColor}" stroke-width="1"/>`;
-            svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${headerTextColor}" font-weight="bold">${this.escapeXml(table.headers[col])}</text>`;
+            svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${headerTextColor}" font-weight="bold">${this.escapeXml(strippedHeaders[col])}</text>`;
             x += colWidths[col];
         }
         y += rowHeight;
 
         // Data rows
-        for (const row of table.rows) {
+        for (const row of strippedRows) {
             x = 0;
-            for (let col = 0; col < table.headers.length; col++) {
+            for (let col = 0; col < strippedHeaders.length; col++) {
                 const cellValue = row[col] || '';
                 svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${cellBg}" stroke="${borderColor}" stroke-width="1"/>`;
                 svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${textColor}">${this.escapeXml(cellValue)}</text>`;
@@ -280,31 +315,6 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         }
 
         svg += '</svg>';
-
-        // Collect all links from the table
-        const links: { text: string; url: string }[] = [];
-        for (const row of table.rows) {
-            for (const cell of row) {
-                if (cell) {
-                    // Check for plain URLs
-                    const urlMatch = cell.match(/^(https?:\/\/[^\s]+)$/);
-                    if (urlMatch) {
-                        try {
-                            const domain = new URL(urlMatch[1]).hostname;
-                            links.push({ text: domain, url: urlMatch[1] });
-                        } catch {
-                            links.push({ text: urlMatch[1], url: urlMatch[1] });
-                        }
-                    }
-                    // Check for markdown links
-                    const mdLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-                    let match;
-                    while ((match = mdLinkRegex.exec(cell)) !== null) {
-                        links.push({ text: match[1], url: match[2] });
-                    }
-                }
-            }
-        }
 
         // Return as data URL that can be used in markdown
         const base64 = Buffer.from(svg).toString('base64');
@@ -392,6 +402,22 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&apos;');
+    }
+
+    private stripMarkdown(text: string): string {
+        return text
+            // Remove markdown links [text](url) -> text
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            // Remove bold **text** or __text__ -> text
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/__([^_]+)__/g, '$1')
+            // Remove italic *text* or _text_ -> text (but not inside words)
+            .replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '$1')
+            .replace(/(?<!\w)_([^_]+)_(?!\w)/g, '$1')
+            // Remove strikethrough ~~text~~ -> text
+            .replace(/~~([^~]+)~~/g, '$1')
+            // Remove inline code `text` -> text
+            .replace(/`([^`]+)`/g, '$1');
     }
 
     private createFormattedTable(table: TableData, chars: typeof UNICODE_CHARS, showLinksBelow: boolean): string {
