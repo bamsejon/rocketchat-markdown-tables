@@ -227,23 +227,38 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         };
     }
 
+    // Normalize URL for deduplication (removes protocol, www, trailing slash)
+    private normalizeUrlForCompare(url: string): string {
+        return url.toLowerCase()
+            .replace(/^https?:\/\//, '')
+            .replace(/^www\./, '')
+            .replace(/\/+$/, '');
+    }
+
     private createCardText(table: TableData, showLinksBelow: boolean = true, userLang: string = 'en'): string {
         // Collect all links from the table before stripping markdown
         const links: { text: string; url: string }[] = [];
+
+        // Helper to check if URL already exists (normalized comparison)
+        const urlExists = (url: string): boolean => {
+            const normalized = this.normalizeUrlForCompare(url);
+            return links.some(l => this.normalizeUrlForCompare(l.url) === normalized);
+        };
+
         for (const row of table.rows) {
             for (const cell of row) {
                 if (cell) {
-                    // Check for plain URLs
-                    const urlMatch = cell.match(/(https?:\/\/[^\s\])]+)/);
-                    if (urlMatch) {
-                        try {
-                            const domain = new URL(urlMatch[1]).hostname;
-                            if (!links.some(l => l.url === urlMatch[1])) {
-                                links.push({ text: domain, url: urlMatch[1] });
-                            }
-                        } catch {
-                            if (!links.some(l => l.url === urlMatch[1])) {
-                                links.push({ text: urlMatch[1], url: urlMatch[1] });
+                    // Check for plain URLs (must have protocol)
+                    const urlRegex = /https?:\/\/[^\s\]\)]+/g;
+                    let urlMatch;
+                    while ((urlMatch = urlRegex.exec(cell)) !== null) {
+                        const url = urlMatch[0];
+                        if (!urlExists(url)) {
+                            try {
+                                const hostname = new URL(url).hostname.replace(/^www\./, '');
+                                links.push({ text: hostname, url: url });
+                            } catch {
+                                links.push({ text: url, url: url });
                             }
                         }
                     }
@@ -251,7 +266,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
                     const mdLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
                     let match;
                     while ((match = mdLinkRegex.exec(cell)) !== null) {
-                        if (!links.some(l => l.url === match[2])) {
+                        if (!urlExists(match[2])) {
                             links.push({ text: match[1], url: match[2] });
                         }
                     }
@@ -318,24 +333,32 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
 
         // Return as data URL that can be used in markdown
         const base64 = Buffer.from(svg).toString('base64');
-        let result = `![Table](data:image/svg+xml;base64,${base64})`;
+        let result = '';
 
-        // Add links below the image for mobile compatibility (if enabled)
+        // Add links BEFORE the image - Rocket.Chat's markdown parser fails to render
+        // images when there's content after them
         if (links.length > 0) {
             if (showLinksBelow) {
+                // Deduplicate using normalized URL comparison
                 const uniqueLinks = links.filter((link, index, self) =>
-                    index === self.findIndex(l => l.url === link.url)
+                    index === self.findIndex(l =>
+                        this.normalizeUrlForCompare(l.url) === this.normalizeUrlForCompare(link.url)
+                    )
                 );
-                result += '\n';
+                result += '**Länkar i tabellen:**';
                 for (const link of uniqueLinks) {
-                    result += `\n🔗 [${link.text}](${link.url})`;
+                    result += `\n- [${link.text}](${link.url})`;
                 }
+                result += '\n\n';
             }
 
             // Add help text about the tableprefs command
             const helpText = this.getHelpText(userLang, showLinksBelow);
-            result += `\n\n_${helpText}_`;
+            result += `_${helpText}_\n\n`;
         }
+
+        // Image MUST be at the end for Rocket.Chat to render it
+        result += `![Table](data:image/svg+xml;base64,${base64})`;
 
         return result;
     }
@@ -424,23 +447,31 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         // Extract all links from the table for display after the code block
         const links: { text: string; url: string }[] = [];
         const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-        const plainUrlRegex = /(https?:\/\/[^\s]+)/g;
+        const plainUrlRegex = /https?:\/\/[^\s]+/g;
+
+        // Helper to check if URL already exists (normalized comparison)
+        const urlExists = (url: string): boolean => {
+            const normalized = this.normalizeUrlForCompare(url);
+            return links.some(l => this.normalizeUrlForCompare(l.url) === normalized);
+        };
 
         // Function to extract links and replace with just the text
         const extractLinks = (text: string): string => {
             // First extract markdown links
             let result = text.replace(markdownLinkRegex, (match, linkText, url) => {
-                links.push({ text: linkText, url });
+                if (!urlExists(url)) {
+                    links.push({ text: linkText, url });
+                }
                 return linkText;
             });
 
             // Then extract plain URLs
             result = result.replace(plainUrlRegex, (url) => {
-                // Don't add if already added as markdown link
-                if (!links.some(l => l.url === url)) {
+                // Don't add if already added (using normalized comparison)
+                if (!urlExists(url)) {
                     // Use domain as display text for plain URLs
                     try {
-                        const domain = new URL(url).hostname;
+                        const domain = new URL(url).hostname.replace(/^www\./, '');
                         links.push({ text: domain, url });
                     } catch {
                         links.push({ text: url, url });
@@ -502,9 +533,11 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         // Add extracted links below the table if setting is enabled and links were found
         if (showLinksBelow && links.length > 0) {
             lines.push('');
-            // Remove duplicates
+            // Remove duplicates using normalized URL comparison
             const uniqueLinks = links.filter((link, index, self) =>
-                index === self.findIndex(l => l.url === link.url)
+                index === self.findIndex(l =>
+                    this.normalizeUrlForCompare(l.url) === this.normalizeUrlForCompare(link.url)
+                )
             );
             for (const link of uniqueLinks) {
                 lines.push(`🔗 [${link.text}](${link.url})`);
