@@ -9,7 +9,7 @@ import {
 } from '@rocket.chat/apps-engine/definition/accessors';
 import { App } from '@rocket.chat/apps-engine/definition/App';
 import { IAppInfo } from '@rocket.chat/apps-engine/definition/metadata';
-import { IMessage, IPreMessageSentModify } from '@rocket.chat/apps-engine/definition/messages';
+import { IMessage, IPreMessageSentModify, IMessageAttachment } from '@rocket.chat/apps-engine/definition/messages';
 import { ISetting, SettingType } from '@rocket.chat/apps-engine/definition/settings';
 
 import { parseMarkdownTable, TableData, convertTsvToMarkdown } from './lib/tableParser';
@@ -184,15 +184,28 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             }
 
             let modifiedText = processedText;
+            const attachments: IMessageAttachment[] = [];
 
             for (const table of tables) {
-                // Replace table with SVG image
-                const cardText = this.createCardText(table, userPrefs.showLinksBelow, userLang);
-                modifiedText = modifiedText.replace(table.rawText, cardText);
+                // Generate card data (text and image)
+                const cardData = this.createCardData(table, userPrefs.showLinksBelow, userLang);
+
+                // Replace table with link text (if any)
+                modifiedText = modifiedText.replace(table.rawText, cardData.text);
+
+                // Add SVG as attachment (not clickable)
+                attachments.push({
+                    imageUrl: cardData.imageDataUrl,
+                });
             }
 
             modifiedText = modifiedText.replace(/\n{3,}/g, '\n\n').trim();
             builder.setText(modifiedText);
+
+            // Add all table images as attachments
+            if (attachments.length > 0) {
+                builder.setAttachments(attachments);
+            }
 
             return builder.getMessage();
         }
@@ -235,7 +248,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             .replace(/\/+$/, '');
     }
 
-    private createCardText(table: TableData, showLinksBelow: boolean = true, userLang: string = 'en'): string {
+    private createCardData(table: TableData, showLinksBelow: boolean = true, userLang: string = 'en'): { text: string; imageDataUrl: string } {
         // Collect all links from the table before stripping markdown
         const links: { text: string; url: string }[] = [];
 
@@ -354,36 +367,31 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
 
         svg += '</svg>';
 
-        // Return as data URL that can be used in markdown
+        // Create data URL for the SVG
         const base64 = Buffer.from(svg).toString('base64');
-        let result = '';
+        const imageDataUrl = `data:image/svg+xml;base64,${base64}`;
+        let text = '';
 
-        // Add links BEFORE the image - Rocket.Chat's markdown parser fails to render
-        // images when there's content after them
-        if (links.length > 0) {
-            if (showLinksBelow) {
-                // Deduplicate using normalized URL comparison
-                const uniqueLinks = links.filter((link, index, self) =>
-                    index === self.findIndex(l =>
-                        this.normalizeUrlForCompare(l.url) === this.normalizeUrlForCompare(link.url)
-                    )
-                );
-                result += '**Länkar i tabellen:**';
-                for (const link of uniqueLinks) {
-                    result += `\n- [${link.text}](${link.url})`;
-                }
-                result += '\n\n';
+        // Add links if enabled
+        if (links.length > 0 && showLinksBelow) {
+            // Deduplicate using normalized URL comparison
+            const uniqueLinks = links.filter((link, index, self) =>
+                index === self.findIndex(l =>
+                    this.normalizeUrlForCompare(l.url) === this.normalizeUrlForCompare(link.url)
+                )
+            );
+            text += '**Länkar i tabellen:**';
+            for (const link of uniqueLinks) {
+                text += `\n- [${link.text}](${link.url})`;
             }
+            text += '\n\n';
 
             // Add help text about the tableprefs command
             const helpText = this.getHelpText(userLang, showLinksBelow);
-            result += `_${helpText}_\n\n`;
+            text += `_${helpText}_`;
         }
 
-        // Image MUST be at the end for Rocket.Chat to render it
-        result += `![Table](data:image/svg+xml;base64,${base64})`;
-
-        return result;
+        return { text, imageDataUrl };
     }
 
     private getHelpText(lang: string, showLinksBelow: boolean): string {

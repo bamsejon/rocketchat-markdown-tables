@@ -164,6 +164,9 @@ Go to **Administration** → **Apps** → **Markdown Tables** → **Settings**
 
 ## Changelog
 
+### v1.12.0
+- **Non-clickable tables** - SVG tables are now rendered as attachments, preventing the "data: link requires external application" popup when clicking on tables
+
 ### v1.11.0
 - **Column alignment in SVG** - Left, center, and right alignment now works in Cards mode
 - **Fixed anchor links** - Links like `[Link](#)` no longer cause rendering issues
