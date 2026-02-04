@@ -274,9 +274,13 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             }
         }
 
-        // Strip markdown from headers and rows for display
-        const strippedHeaders = table.headers.map(h => this.stripMarkdown(h));
-        const strippedRows = table.rows.map(row => row.map(cell => this.stripMarkdown(cell || '')));
+        // Parse headers and rows - keep formatting info for SVG rendering
+        const parsedHeaders = table.headers.map(h => this.parseFormattedText(h));
+        const parsedRows = table.rows.map(row => row.map(cell => this.parseFormattedText(cell || '')));
+
+        // Get plain text for width calculation
+        const plainHeaders = parsedHeaders.map(segments => segments.map(s => s.text).join(''));
+        const plainRows = parsedRows.map(row => row.map(segments => segments.map(s => s.text).join('')));
 
         // Generate SVG table
         const cellPadding = 10;
@@ -287,11 +291,11 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const textColor = '#000000';
         const headerTextColor = '#FFFFFF';
 
-        // Calculate column widths based on stripped content
+        // Calculate column widths based on plain text content
         const colWidths: number[] = [];
-        for (let i = 0; i < strippedHeaders.length; i++) {
-            let maxLen = strippedHeaders[i].length;
-            for (const row of strippedRows) {
+        for (let i = 0; i < plainHeaders.length; i++) {
+            let maxLen = plainHeaders[i].length;
+            for (const row of plainRows) {
                 const cellLen = (row[i] || '').length;
                 if (cellLen > maxLen) maxLen = cellLen;
             }
@@ -300,7 +304,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
 
         const rowHeight = fontSize + cellPadding * 2 + 4;
         const totalWidth = colWidths.reduce((a, b) => a + b, 0);
-        const totalHeight = rowHeight * (strippedRows.length + 1); // +1 for header
+        const totalHeight = rowHeight * (parsedRows.length + 1); // +1 for header
 
         let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}">`;
         svg += `<style>text { font-family: Arial, sans-serif; font-size: ${fontSize}px; }</style>`;
@@ -310,20 +314,21 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
 
         // Header row
         let x = 0;
-        for (let col = 0; col < strippedHeaders.length; col++) {
+        for (let col = 0; col < parsedHeaders.length; col++) {
             svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${headerBg}" stroke="${borderColor}" stroke-width="1"/>`;
-            svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${headerTextColor}" font-weight="bold">${this.escapeXml(strippedHeaders[col])}</text>`;
+            // Headers are always bold
+            svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${headerTextColor}" font-weight="bold">${this.escapeXml(plainHeaders[col])}</text>`;
             x += colWidths[col];
         }
         y += rowHeight;
 
-        // Data rows
-        for (const row of strippedRows) {
+        // Data rows - render with formatting
+        for (let rowIdx = 0; rowIdx < parsedRows.length; rowIdx++) {
             x = 0;
-            for (let col = 0; col < strippedHeaders.length; col++) {
-                const cellValue = row[col] || '';
+            for (let col = 0; col < parsedHeaders.length; col++) {
+                const segments = parsedRows[rowIdx][col] || [];
                 svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${cellBg}" stroke="${borderColor}" stroke-width="1"/>`;
-                svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${textColor}">${this.escapeXml(cellValue)}</text>`;
+                svg += this.renderFormattedText(segments, x + cellPadding, y + rowHeight / 2 + fontSize / 3, textColor, fontSize);
                 x += colWidths[col];
             }
             y += rowHeight;
@@ -425,6 +430,104 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&apos;');
+    }
+
+    // Text segment with formatting info
+    private parseFormattedText(text: string): Array<{ text: string; bold: boolean; italic: boolean; code: boolean }> {
+        const segments: Array<{ text: string; bold: boolean; italic: boolean; code: boolean }> = [];
+
+        // First, handle markdown links [text](url) -> text
+        let processed = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+        // Regex to find formatted sections
+        // Match: **bold**, *italic*, `code`, __bold__, _italic_
+        const formatRegex = /(\*\*(.+?)\*\*|__(.+?)__|(?<!\*)\*([^*]+)\*(?!\*)|(?<!_)_([^_]+)_(?!_)|`([^`]+)`)/g;
+
+        let lastIndex = 0;
+        let match;
+
+        while ((match = formatRegex.exec(processed)) !== null) {
+            // Add any text before this match as plain
+            if (match.index > lastIndex) {
+                segments.push({
+                    text: processed.slice(lastIndex, match.index),
+                    bold: false,
+                    italic: false,
+                    code: false,
+                });
+            }
+
+            // Determine what kind of formatting this is
+            if (match[2] !== undefined) {
+                // **bold**
+                segments.push({ text: match[2], bold: true, italic: false, code: false });
+            } else if (match[3] !== undefined) {
+                // __bold__
+                segments.push({ text: match[3], bold: true, italic: false, code: false });
+            } else if (match[4] !== undefined) {
+                // *italic*
+                segments.push({ text: match[4], bold: false, italic: true, code: false });
+            } else if (match[5] !== undefined) {
+                // _italic_
+                segments.push({ text: match[5], bold: false, italic: true, code: false });
+            } else if (match[6] !== undefined) {
+                // `code`
+                segments.push({ text: match[6], bold: false, italic: false, code: true });
+            }
+
+            lastIndex = match.index + match[0].length;
+        }
+
+        // Add remaining text
+        if (lastIndex < processed.length) {
+            segments.push({
+                text: processed.slice(lastIndex),
+                bold: false,
+                italic: false,
+                code: false,
+            });
+        }
+
+        // If no segments, return the whole text as plain
+        if (segments.length === 0) {
+            segments.push({ text: processed, bold: false, italic: false, code: false });
+        }
+
+        return segments;
+    }
+
+    // Render formatted text segments as SVG
+    private renderFormattedText(
+        segments: Array<{ text: string; bold: boolean; italic: boolean; code: boolean }>,
+        x: number,
+        y: number,
+        color: string,
+        fontSize: number
+    ): string {
+        let svg = '';
+        let currentX = x;
+
+        for (const segment of segments) {
+            const attrs: string[] = [`x="${currentX}"`, `y="${y}"`, `fill="${color}"`];
+
+            if (segment.bold) {
+                attrs.push('font-weight="bold"');
+            }
+            if (segment.italic) {
+                attrs.push('font-style="italic"');
+            }
+            if (segment.code) {
+                attrs.push('font-family="monospace"');
+            }
+
+            svg += `<text ${attrs.join(' ')}>${this.escapeXml(segment.text)}</text>`;
+
+            // Approximate width for positioning next segment
+            const charWidth = segment.code ? fontSize * 0.6 : fontSize * 0.55;
+            currentX += segment.text.length * charWidth;
+        }
+
+        return svg;
     }
 
     private stripMarkdown(text: string): string {
