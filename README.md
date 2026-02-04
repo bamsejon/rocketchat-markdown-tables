@@ -164,8 +164,12 @@ Go to **Administration** → **Apps** → **Markdown Tables** → **Settings**
 
 ## Changelog
 
+### v1.13.0
+- **Fixed click behavior** - Tables now link to `#` when clicked, preventing the data URL popup
+- **Reverted attachment approach** - Back to inline images for better rendering in desktop clients
+
 ### v1.12.0
-- **Non-clickable tables** - SVG tables are now rendered as attachments, preventing the "data: link requires external application" popup when clicking on tables
+- **Non-clickable tables** - SVG tables rendered as attachments (reverted in v1.13.0 due to rendering issues in desktop client)
 
 ### v1.11.0
 - **Column alignment in SVG** - Left, center, and right alignment now works in Cards mode

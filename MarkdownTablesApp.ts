@@ -9,7 +9,7 @@ import {
 } from '@rocket.chat/apps-engine/definition/accessors';
 import { App } from '@rocket.chat/apps-engine/definition/App';
 import { IAppInfo } from '@rocket.chat/apps-engine/definition/metadata';
-import { IMessage, IPreMessageSentModify, IMessageAttachment } from '@rocket.chat/apps-engine/definition/messages';
+import { IMessage, IPreMessageSentModify } from '@rocket.chat/apps-engine/definition/messages';
 import { ISetting, SettingType } from '@rocket.chat/apps-engine/definition/settings';
 
 import { parseMarkdownTable, TableData, convertTsvToMarkdown } from './lib/tableParser';
@@ -184,28 +184,15 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             }
 
             let modifiedText = processedText;
-            const attachments: IMessageAttachment[] = [];
 
             for (const table of tables) {
-                // Generate card data (text and image)
-                const cardData = this.createCardData(table, userPrefs.showLinksBelow, userLang);
-
-                // Replace table with link text (if any)
-                modifiedText = modifiedText.replace(table.rawText, cardData.text);
-
-                // Add SVG as attachment (not clickable)
-                attachments.push({
-                    imageUrl: cardData.imageDataUrl,
-                });
+                // Generate card text with inline image
+                const cardText = this.createCardText(table, userPrefs.showLinksBelow, userLang);
+                modifiedText = modifiedText.replace(table.rawText, cardText);
             }
 
             modifiedText = modifiedText.replace(/\n{3,}/g, '\n\n').trim();
             builder.setText(modifiedText);
-
-            // Add all table images as attachments
-            if (attachments.length > 0) {
-                builder.setAttachments(attachments);
-            }
 
             return builder.getMessage();
         }
@@ -248,7 +235,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             .replace(/\/+$/, '');
     }
 
-    private createCardData(table: TableData, showLinksBelow: boolean = true, userLang: string = 'en'): { text: string; imageDataUrl: string } {
+    private createCardText(table: TableData, showLinksBelow: boolean = true, userLang: string = 'en'): string {
         // Collect all links from the table before stripping markdown
         const links: { text: string; url: string }[] = [];
 
@@ -370,9 +357,9 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         // Create data URL for the SVG
         const base64 = Buffer.from(svg).toString('base64');
         const imageDataUrl = `data:image/svg+xml;base64,${base64}`;
-        let text = '';
+        let result = '';
 
-        // Add links if enabled
+        // Add links BEFORE the image
         if (links.length > 0 && showLinksBelow) {
             // Deduplicate using normalized URL comparison
             const uniqueLinks = links.filter((link, index, self) =>
@@ -380,18 +367,22 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
                     this.normalizeUrlForCompare(l.url) === this.normalizeUrlForCompare(link.url)
                 )
             );
-            text += '**Länkar i tabellen:**';
+            result += '**Länkar i tabellen:**';
             for (const link of uniqueLinks) {
-                text += `\n- [${link.text}](${link.url})`;
+                result += `\n- [${link.text}](${link.url})`;
             }
-            text += '\n\n';
+            result += '\n\n';
 
             // Add help text about the tableprefs command
             const helpText = this.getHelpText(userLang, showLinksBelow);
-            text += `_${helpText}_`;
+            result += `_${helpText}_\n\n`;
         }
 
-        return { text, imageDataUrl };
+        // Wrap image in a link to # to prevent data URL popup when clicked
+        // Format: [![alt](image-url)](link-url)
+        result += `[![Table](${imageDataUrl})](# "Tabell")`;
+
+        return result;
     }
 
     private getHelpText(lang: string, showLinksBelow: boolean): string {
