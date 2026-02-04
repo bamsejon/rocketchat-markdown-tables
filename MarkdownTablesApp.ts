@@ -287,69 +287,56 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         const plainHeaders = parsedHeaders.map(segments => segments.map(s => s.text).join(''));
         const plainRows = parsedRows.map(row => row.map(segments => segments.map(s => s.text).join('')));
 
-        // Generate SVG table
-        const cellPadding = 10;
-        const fontSize = 14;
-        const headerBg = '#D70000';
-        const cellBg = '#FFFFFF';
-        const borderColor = '#333333';
-        const textColor = '#000000';
-        const headerTextColor = '#FFFFFF';
+        // Generate compact SVG table
+        const pad = 10;
+        const fs = 14;
+        const rh = fs + pad * 2 + 4; // row height
 
         // Calculate column widths based on plain text content
-        const colWidths: number[] = [];
+        const cw: number[] = []; // column widths
         for (let i = 0; i < plainHeaders.length; i++) {
             let maxLen = plainHeaders[i].length;
             for (const row of plainRows) {
                 const cellLen = (row[i] || '').length;
                 if (cellLen > maxLen) maxLen = cellLen;
             }
-            colWidths.push(Math.max(maxLen * 9 + cellPadding * 2, 80)); // ~9px per char
+            cw.push(Math.max(maxLen * 9 + pad * 2, 80));
         }
 
-        const rowHeight = fontSize + cellPadding * 2 + 4;
-        const totalWidth = colWidths.reduce((a, b) => a + b, 0);
-        const totalHeight = rowHeight * (parsedRows.length + 1); // +1 for header
+        const tw = cw.reduce((a, b) => a + b, 0); // total width
+        const th = rh * (parsedRows.length + 1); // total height
 
-        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}">`;
-        svg += `<style>text { font-family: Arial, sans-serif; font-size: ${fontSize}px; }</style>`;
+        // Compact SVG with CSS classes for reuse (shorter than inline styles)
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tw}" height="${th}">`;
+        svg += `<style>.h{fill:#D00;stroke:#333}.c{fill:#FFF;stroke:#333}.t{font:${fs}px Arial}.w{fill:#FFF;font-weight:700}.b{fill:#000}</style>`;
 
-        // Draw cells
         let y = 0;
 
-        // Header row - with alignment support
+        // Header row
         let x = 0;
         for (let col = 0; col < parsedHeaders.length; col++) {
-            const alignment = table.alignments[col] || 'left';
-            svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${headerBg}" stroke="${borderColor}" stroke-width="1"/>`;
-
-            // Calculate text position based on alignment
-            const textWidth = plainHeaders[col].length * fontSize * 0.55;
-            let textX: number;
-            if (alignment === 'center') {
-                textX = x + (colWidths[col] - textWidth) / 2;
-            } else if (alignment === 'right') {
-                textX = x + colWidths[col] - cellPadding - textWidth;
-            } else {
-                textX = x + cellPadding;
-            }
-
-            svg += `<text x="${textX}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${headerTextColor}" font-weight="bold">${this.escapeXml(plainHeaders[col])}</text>`;
-            x += colWidths[col];
+            const al = table.alignments[col] || 'left';
+            svg += `<rect class="h" x="${x}" y="0" width="${cw[col]}" height="${rh}"/>`;
+            const txtW = plainHeaders[col].length * fs * 0.55;
+            let tx = al === 'center' ? Math.round(x + (cw[col] - txtW) / 2) :
+                     al === 'right' ? Math.round(x + cw[col] - pad - txtW) : x + pad;
+            const ty = Math.round(rh / 2 + fs / 3);
+            svg += `<text class="t w" x="${tx}" y="${ty}">${this.escapeXml(plainHeaders[col])}</text>`;
+            x += cw[col];
         }
-        y += rowHeight;
+        y = rh;
 
-        // Data rows - render with formatting and alignment
-        for (let rowIdx = 0; rowIdx < parsedRows.length; rowIdx++) {
+        // Data rows
+        for (let ri = 0; ri < parsedRows.length; ri++) {
             x = 0;
             for (let col = 0; col < parsedHeaders.length; col++) {
-                const segments = parsedRows[rowIdx][col] || [];
-                const alignment = table.alignments[col] || 'left';
-                svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${cellBg}" stroke="${borderColor}" stroke-width="1"/>`;
-                svg += this.renderFormattedText(segments, x, y + rowHeight / 2 + fontSize / 3, textColor, fontSize, colWidths[col], cellPadding, alignment);
-                x += colWidths[col];
+                const segs = parsedRows[ri][col] || [];
+                const al = table.alignments[col] || 'left';
+                svg += `<rect class="c" x="${x}" y="${y}" width="${cw[col]}" height="${rh}"/>`;
+                svg += this.renderFormattedTextCompact(segs, x, Math.round(y + rh / 2 + fs / 3), cw[col], pad, al, fs);
+                x += cw[col];
             }
-            y += rowHeight;
+            y += rh;
         }
 
         svg += '</svg>';
@@ -378,9 +365,9 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             result += `_${helpText}_\n\n`;
         }
 
-        // Wrap image in a link to # to prevent data URL popup when clicked
-        // Format: [![alt](image-url)](link-url)
-        result += `[![Table](${imageDataUrl})](# "Tabell")`;
+        // Use inline image - Rocket.Chat doesn't support nested [![img](url)](link) syntax
+        // The data URL click popup is unfortunate but unavoidable without proper RC support
+        result += `![Table](${imageDataUrl})`;
 
         return result;
     }
@@ -565,6 +552,48 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             // Approximate width for positioning next segment
             const charWidth = segment.code ? fontSize * 0.6 : fontSize * 0.55;
             currentX += segment.text.length * charWidth;
+        }
+
+        return svg;
+    }
+
+    // Compact version that uses CSS classes for smaller output
+    private renderFormattedTextCompact(
+        segments: Array<{ text: string; bold: boolean; italic: boolean; code: boolean }>,
+        cellX: number,
+        y: number,
+        cellWidth: number,
+        cellPadding: number,
+        alignment: string,
+        fontSize: number
+    ): string {
+        let svg = '';
+
+        // Calculate total text width for alignment
+        let totalW = 0;
+        for (const s of segments) {
+            totalW += s.text.length * (s.code ? fontSize * 0.6 : fontSize * 0.55);
+        }
+
+        // Starting X based on alignment
+        let sx = alignment === 'center' ? Math.round(cellX + (cellWidth - totalW) / 2) :
+                 alignment === 'right' ? Math.round(cellX + cellWidth - cellPadding - totalW) :
+                 cellX + cellPadding;
+
+        for (const s of segments) {
+            // Use short class names: b=black fill, t=font
+            let cls = 't b';
+            if (s.bold) cls += ' font-weight:700';
+            if (s.italic) cls += ' font-style:italic';
+            if (s.code) cls += ' font-family:monospace';
+
+            // Only add extra attributes if needed
+            const extra = s.bold ? ' font-weight="700"' : '';
+            const extra2 = s.italic ? ' font-style="italic"' : '';
+            const extra3 = s.code ? ' font-family="monospace"' : '';
+
+            svg += `<text class="t b" x="${sx}" y="${y}"${extra}${extra2}${extra3}>${this.escapeXml(s.text)}</text>`;
+            sx += Math.round(s.text.length * (s.code ? fontSize * 0.6 : fontSize * 0.55));
         }
 
         return svg;

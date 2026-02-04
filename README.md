@@ -164,6 +164,14 @@ Go to **Administration** → **Apps** → **Markdown Tables** → **Settings**
 
 ## Changelog
 
+### v1.14.0
+- **Fixed large table rendering** - Tables with 3+ columns now render correctly
+- **Compressed SVG output** - Uses CSS classes and shorter attributes to reduce base64 URL length
+- **Rocket.Chat compatibility** - Fixes issue where long data URLs broke markdown parsing
+
+### v1.13.1
+- Reverted nested markdown approach - Rocket.Chat doesn't support `[![img](url)](link)` syntax
+
 ### v1.13.0
 - **Fixed click behavior** - Tables now link to `#` when clicked, preventing the data URL popup
 - **Reverted attachment approach** - Back to inline images for better rendering in desktop clients
