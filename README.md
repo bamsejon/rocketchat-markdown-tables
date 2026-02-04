@@ -164,6 +164,10 @@ Go to **Administration** → **Apps** → **Markdown Tables** → **Settings**
 
 ## Changelog
 
+### v1.10.0
+- **Bold/italic/code support** - Formatted text now renders correctly in SVG tables
+- Text with `**bold**`, `*italic*`, or `` `code` `` displays with proper styling
+
 ### v1.9.7
 - Fixed SVG rendering when tables contain links
 - Improved URL deduplication
