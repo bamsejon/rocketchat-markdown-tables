@@ -266,8 +266,13 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
                     const mdLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
                     let match;
                     while ((match = mdLinkRegex.exec(cell)) !== null) {
-                        if (!urlExists(match[2])) {
-                            links.push({ text: match[1], url: match[2] });
+                        const linkUrl = match[2];
+                        // Skip anchor-only links like # or #section
+                        if (linkUrl.startsWith('#') || linkUrl === '') {
+                            continue;
+                        }
+                        if (!urlExists(linkUrl)) {
+                            links.push({ text: match[1], url: linkUrl });
                         }
                     }
                 }
@@ -312,23 +317,36 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         // Draw cells
         let y = 0;
 
-        // Header row
+        // Header row - with alignment support
         let x = 0;
         for (let col = 0; col < parsedHeaders.length; col++) {
+            const alignment = table.alignments[col] || 'left';
             svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${headerBg}" stroke="${borderColor}" stroke-width="1"/>`;
-            // Headers are always bold
-            svg += `<text x="${x + cellPadding}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${headerTextColor}" font-weight="bold">${this.escapeXml(plainHeaders[col])}</text>`;
+
+            // Calculate text position based on alignment
+            const textWidth = plainHeaders[col].length * fontSize * 0.55;
+            let textX: number;
+            if (alignment === 'center') {
+                textX = x + (colWidths[col] - textWidth) / 2;
+            } else if (alignment === 'right') {
+                textX = x + colWidths[col] - cellPadding - textWidth;
+            } else {
+                textX = x + cellPadding;
+            }
+
+            svg += `<text x="${textX}" y="${y + rowHeight / 2 + fontSize / 3}" fill="${headerTextColor}" font-weight="bold">${this.escapeXml(plainHeaders[col])}</text>`;
             x += colWidths[col];
         }
         y += rowHeight;
 
-        // Data rows - render with formatting
+        // Data rows - render with formatting and alignment
         for (let rowIdx = 0; rowIdx < parsedRows.length; rowIdx++) {
             x = 0;
             for (let col = 0; col < parsedHeaders.length; col++) {
                 const segments = parsedRows[rowIdx][col] || [];
+                const alignment = table.alignments[col] || 'left';
                 svg += `<rect x="${x}" y="${y}" width="${colWidths[col]}" height="${rowHeight}" fill="${cellBg}" stroke="${borderColor}" stroke-width="1"/>`;
-                svg += this.renderFormattedText(segments, x + cellPadding, y + rowHeight / 2 + fontSize / 3, textColor, fontSize);
+                svg += this.renderFormattedText(segments, x, y + rowHeight / 2 + fontSize / 3, textColor, fontSize, colWidths[col], cellPadding, alignment);
                 x += colWidths[col];
             }
             y += rowHeight;
@@ -496,16 +514,39 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
         return segments;
     }
 
-    // Render formatted text segments as SVG
+    // Render formatted text segments as SVG with alignment support
     private renderFormattedText(
         segments: Array<{ text: string; bold: boolean; italic: boolean; code: boolean }>,
-        x: number,
+        cellX: number,
         y: number,
         color: string,
-        fontSize: number
+        fontSize: number,
+        cellWidth?: number,
+        cellPadding?: number,
+        alignment?: string
     ): string {
         let svg = '';
-        let currentX = x;
+        const padding = cellPadding || 10;
+        const align = alignment || 'left';
+
+        // Calculate total text width for alignment
+        let totalTextWidth = 0;
+        for (const segment of segments) {
+            const charWidth = segment.code ? fontSize * 0.6 : fontSize * 0.55;
+            totalTextWidth += segment.text.length * charWidth;
+        }
+
+        // Calculate starting X position based on alignment
+        let startX: number;
+        if (cellWidth && align === 'center') {
+            startX = cellX + (cellWidth - totalTextWidth) / 2;
+        } else if (cellWidth && align === 'right') {
+            startX = cellX + cellWidth - padding - totalTextWidth;
+        } else {
+            startX = cellX + padding;
+        }
+
+        let currentX = startX;
 
         for (const segment of segments) {
             const attrs: string[] = [`x="${currentX}"`, `y="${y}"`, `fill="${color}"`];

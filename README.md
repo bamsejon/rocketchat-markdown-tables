@@ -164,6 +164,10 @@ Go to **Administration** → **Apps** → **Markdown Tables** → **Settings**
 
 ## Changelog
 
+### v1.11.0
+- **Column alignment in SVG** - Left, center, and right alignment now works in Cards mode
+- **Fixed anchor links** - Links like `[Link](#)` no longer cause rendering issues
+
 ### v1.10.0
 - **Bold/italic/code support** - Formatted text now renders correctly in SVG tables
 - Text with `**bold**`, `*italic*`, or `` `code` `` displays with proper styling
