@@ -112,12 +112,19 @@ URLs in table cells are automatically extracted and displayed as clickable links
 
 ### User Preferences
 
-Users can customize their own table display:
+Users can customize their own table display style, overriding the admin default:
 
 ```
-/tableprefs links on    - Show links below tables
-/tableprefs links off   - Hide links below tables
+/tableprefs style unicode  - Box-drawing characters (┌─┬─┐)
+/tableprefs style ascii    - Classic style (+, -, |)
+/tableprefs style cards    - SVG image (mobile-friendly)
+/tableprefs style default  - Use admin default setting
+
+/tableprefs links on       - Show links below tables
+/tableprefs links off      - Hide links below tables
 ```
+
+Run `/tableprefs` without arguments to see your current settings.
 
 ### Column Alignment
 
@@ -163,6 +170,11 @@ Go to **Administration** → **Apps** → **Markdown Tables** → **Settings**
 - Some older Rocket.Chat versions may not support data URL images
 
 ## Changelog
+
+### v1.15.0
+- **User style override** - Users can now choose their own table style via `/tableprefs style ascii/unicode/cards`
+- Admin setting becomes the default, individual users can override with their preference
+- Run `/tableprefs style default` to go back to using the admin setting
 
 ### v1.14.0
 - **Fixed large table rendering** - Tables with 3+ columns now render correctly

@@ -14,11 +14,12 @@ import { RocketChatAssociationModel, RocketChatAssociationRecord } from '@rocket
 
 export interface UserTablePrefs {
     showLinksBelow: boolean;
+    style?: 'unicode' | 'ascii' | 'cards' | null;  // null = use admin default
 }
 
 export class TablePrefsCommand implements ISlashCommand {
     public command = 'tableprefs';
-    public i18nParamsExample = 'links on/off';
+    public i18nParamsExample = 'style ascii | links on/off';
     public i18nDescription = 'Set your personal table display preferences';
     public providesPreview = false;
 
@@ -36,13 +37,19 @@ export class TablePrefsCommand implements ISlashCommand {
         if (args.length === 0) {
             // Show current settings
             const prefs = await this.getUserPrefs(read, sender.id);
+            const styleDisplay = prefs.style || 'default (admin setting)';
             await this.sendNotifyMessage(
                 room,
                 sender,
                 modify,
                 `**Your Table Preferences:**\n` +
+                `- Style: **${styleDisplay}**\n` +
                 `- Show links below image: **${prefs.showLinksBelow ? 'on' : 'off'}**\n\n` +
                 `**Usage:**\n` +
+                `\`/tableprefs style unicode\` - Box-drawing characters (┌─┬─┐)\n` +
+                `\`/tableprefs style ascii\` - Classic style (+, -, |)\n` +
+                `\`/tableprefs style cards\` - SVG image (mobile-friendly)\n` +
+                `\`/tableprefs style default\` - Use admin default setting\n` +
                 `\`/tableprefs links on\` - Show links below table image\n` +
                 `\`/tableprefs links off\` - Hide links below table image`
             );
@@ -52,7 +59,32 @@ export class TablePrefsCommand implements ISlashCommand {
         const setting = args[0]?.toLowerCase();
         const value = args[1]?.toLowerCase();
 
-        if (setting === 'links') {
+        if (setting === 'style') {
+            const validStyles = ['unicode', 'ascii', 'cards', 'default'];
+            if (value && validStyles.includes(value)) {
+                const prefs = await this.getUserPrefs(read, sender.id);
+                prefs.style = value === 'default' ? null : value as 'unicode' | 'ascii' | 'cards';
+                await this.saveUserPrefs(persistence, sender.id, prefs);
+                const displayValue = value === 'default' ? 'default (admin setting)' : value;
+                await this.sendNotifyMessage(
+                    room,
+                    sender,
+                    modify,
+                    `Table style: **${displayValue}**`
+                );
+            } else {
+                await this.sendNotifyMessage(
+                    room,
+                    sender,
+                    modify,
+                    `**Usage:**\n` +
+                    `\`/tableprefs style unicode\` - Box-drawing characters (┌─┬─┐)\n` +
+                    `\`/tableprefs style ascii\` - Classic style (+, -, |)\n` +
+                    `\`/tableprefs style cards\` - SVG image (mobile-friendly)\n` +
+                    `\`/tableprefs style default\` - Use admin default setting`
+                );
+            }
+        } else if (setting === 'links') {
             if (value === 'on' || value === 'off') {
                 const prefs = await this.getUserPrefs(read, sender.id);
                 prefs.showLinksBelow = value === 'on';
@@ -78,6 +110,7 @@ export class TablePrefsCommand implements ISlashCommand {
                 modify,
                 `**Unknown setting:** ${setting}\n\n` +
                 `**Available settings:**\n` +
+                `- \`style unicode/ascii/cards/default\` - Table rendering style\n` +
                 `- \`links on/off\` - Show/hide links below table image`
             );
         }
@@ -98,9 +131,10 @@ export class TablePrefsCommand implements ISlashCommand {
             return records[0] as UserTablePrefs;
         }
 
-        // Default preferences
+        // Default preferences (null style = use admin default)
         return {
             showLinksBelow: true,
+            style: null,
         };
     }
 

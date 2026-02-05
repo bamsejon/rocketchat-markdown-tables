@@ -144,10 +144,15 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             return message;
         }
 
-        // Get settings
-        const tableStyle = await read.getEnvironmentReader().getSettings().getValueById('table_style');
+        // Get admin settings
+        const adminTableStyle = await read.getEnvironmentReader().getSettings().getValueById('table_style');
         const showLinksBelow = await read.getEnvironmentReader().getSettings().getValueById('show_links_below');
         const disableLinkPreviews = await read.getEnvironmentReader().getSettings().getValueById('disable_link_previews');
+
+        // Get user style preference (overrides admin default if set)
+        const defaultShowLinks = await read.getEnvironmentReader().getSettings().getValueById('default_show_links_below');
+        const userPrefs = await this.getUserPrefs(read, message.sender.id, defaultShowLinks !== false);
+        const tableStyle = userPrefs.style || adminTableStyle;
 
         // Disable link previews if setting is enabled
         if (disableLinkPreviews !== false) {
@@ -156,9 +161,7 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
 
         // Handle cards (mobile-friendly) mode with SVG image
         if (tableStyle === 'cards') {
-            // Get default setting and user preferences
-            const defaultShowLinks = await read.getEnvironmentReader().getSettings().getValueById('default_show_links_below');
-            const userPrefs = await this.getUserPrefs(read, message.sender.id, defaultShowLinks !== false);
+            // User prefs already fetched above
 
             // Get language for help text
             const langSetting = await read.getEnvironmentReader().getSettings().getValueById('default_language');
@@ -221,9 +224,10 @@ export class MarkdownTablesApp extends App implements IPreMessageSentModify {
             return records[0] as UserTablePrefs;
         }
 
-        // Default preferences from app settings
+        // Default preferences from app settings (null style = use admin default)
         return {
             showLinksBelow: defaultShowLinks,
+            style: null,
         };
     }
 
